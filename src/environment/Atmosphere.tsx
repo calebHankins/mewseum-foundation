@@ -1,5 +1,5 @@
-import { useRef, useMemo, useEffect } from 'react'
-import { useFrame, useThree } from '@react-three/fiber'
+import { useRef, useMemo } from 'react'
+import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 
 const PARTICLE_COUNT = 180
@@ -7,7 +7,7 @@ const MAX_SMALL_PARTICLES = 1000
 const SPREAD_X = 18
 const SPREAD_Y = 5.5
 const SPREAD_Z = 22
-const SPLIT_DISTANCE = 4 // Max distance player can click from
+const SPLIT_DISTANCE = 10 // Max world-space distance from camera to mote
 
 /** Floating pixel dust motes — simple BufferGeometry point cloud */
 function PixelDust() {
@@ -81,14 +81,6 @@ function PixelDust() {
     }
   })
 
-  // Tighten the raycaster's Points threshold so clicks land on exactly the
-  // dot you see, not any particle within a 1-unit default cylinder.
-  const { raycaster } = useThree()
-  useEffect(() => {
-    raycaster.params.Points = raycaster.params.Points ?? {}
-    raycaster.params.Points.threshold = 0.12
-  }, [raycaster])
-
   return (
     <>
       <points
@@ -112,16 +104,7 @@ function PixelDust() {
           const y = pos[idx * 3 + 1]
           const z = pos[idx * 3 + 2]
 
-          // Sanity-check: the clicked particle should be reasonably close to
-          // the ray intersection point reported by R3F. If it's too far away
-          // it means the raycaster picked a different particle than the one
-          // the user aimed at — bail out without destroying anything.
-          const dx = x - e.point.x
-          const dy = y - e.point.y
-          const dz = z - e.point.z
-          if (dx * dx + dy * dy + dz * dz > 0.5) return
-
-          // Everything looks good — spawn first, then hide the parent
+          // Spawn first, then hide the parent
           const spos = (spts.geometry.attributes.position as THREE.BufferAttribute).array as Float32Array
           const currentCount = smallCountRef.current
 
@@ -163,7 +146,7 @@ function PixelDust() {
         />
       </points>
 
-      <points ref={smallPointsRef}>
+      <points ref={smallPointsRef} frustumCulled={false}>
         <bufferGeometry drawRange={{ start: 0, count: 0 }}>
           <bufferAttribute
             attach="attributes-position"
