@@ -125,11 +125,12 @@ img, canvas {
 
 .pebble-tray {
   min-height: 235px;
-  display: flex;
+  display: grid;
+  grid-template-rows: repeat(3, minmax(43px, auto));
+  grid-template-columns: repeat(8, 57px);
   align-content: center;
   justify-content: center;
   align-items: center;
-  flex-wrap: wrap;
   gap: 12px;
   padding: 20px 10px;
   background-color: #bfb28f;
@@ -186,6 +187,11 @@ img, canvas {
   transform: translate(var(--drag-x), var(--drag-y)) scale(1.12);
   transition: none;
   cursor: grabbing;
+}
+
+.pebble-stone.is-settling {
+  animation: pebble-settle 260ms ease-out both;
+  animation-delay: var(--settle-delay);
 }
 
 .pebble-tray-empty {
@@ -318,12 +324,29 @@ img, canvas {
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
+@keyframes pebble-settle {
+  from {
+    opacity: .8;
+    transform: translate(var(--settle-x), var(--settle-y)) rotate(calc((var(--stone-index) - 7) * 3deg));
+  }
+  to {
+    opacity: 1;
+    transform: rotate(calc((var(--stone-index) - 7) * 3deg));
+  }
+}
+
 @media (max-width: 520px) {
   .pebble-overlay { padding: 10px; }
   .pebble-game { padding: 18px 14px; border-width: 3px; }
   .pebble-status { align-items: flex-start; flex-direction: column; justify-content: center; gap: 4px; }
   .pebble-workspace { padding: 10px; }
-  .pebble-tray { min-height: 235px; gap: 8px; padding: 15px 5px; }
+  .pebble-tray {
+    min-height: 310px;
+    grid-template-rows: repeat(6, minmax(37px, auto));
+    grid-template-columns: repeat(4, 57px);
+    gap: 8px;
+    padding: 15px 5px;
+  }
   .pebble-stone { width: 48px; height: 37px; flex-basis: 48px; }
   .pebble-bowls { gap: 7px; margin-top: 12px; }
   .pebble-bowl { min-height: 108px; padding: 10px 3px 8px; }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import { useAudioContext } from '../audio/AudioContext'
 import { playPebbleSound } from '../audio/pebbleSounds'
@@ -55,6 +55,9 @@ export default function PebbleSort({ onClose }: PebbleSortProps) {
   const [message, setMessage] = useState('Choose a pebble, then find its colour bowl.')
   const gestureRef = useRef<PebbleGesture | null>(null)
   const suppressClickRef = useRef<number | null>(null)
+  const pebbleRefs = useRef(new Map<number, HTMLButtonElement>())
+  const previousPositionsRef = useRef(new Map<number, { left: number; top: number }>())
+  const settleTimeoutRef = useRef<number | null>(null)
   const sortedCount = sorted.reduce((total, pebble) => total + pebble.count, 0)
   const complete = sortedCount === TOTAL_PEBBLES
 
@@ -69,6 +72,54 @@ export default function PebbleSort({ onClose }: PebbleSortProps) {
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [onClose])
+
+  useLayoutEffect(() => {
+    const previousPositions = previousPositionsRef.current
+    if (previousPositions.size === 0) return
+
+    const settlingElements: HTMLButtonElement[] = []
+    pebbleRefs.current.forEach((element, id) => {
+      const previousPosition = previousPositions.get(id)
+      if (!previousPosition) return
+      const currentPosition = element.getBoundingClientRect()
+      const offsetX = previousPosition.left - currentPosition.left
+      const offsetY = previousPosition.top - currentPosition.top
+      if (Math.abs(offsetX) < 1 && Math.abs(offsetY) < 1) return
+
+      element.style.setProperty('--settle-x', `${offsetX}px`)
+      element.style.setProperty('--settle-y', `${offsetY}px`)
+      element.classList.add('is-settling')
+      settlingElements.push(element)
+    })
+    previousPositions.clear()
+
+    settleTimeoutRef.current = window.setTimeout(() => {
+      settlingElements.forEach(element => {
+        element.classList.remove('is-settling')
+        element.style.removeProperty('--settle-x')
+        element.style.removeProperty('--settle-y')
+      })
+      settleTimeoutRef.current = null
+    }, 420)
+
+    return () => {
+      if (settleTimeoutRef.current !== null) window.clearTimeout(settleTimeoutRef.current)
+      settlingElements.forEach(element => {
+        element.classList.remove('is-settling')
+        element.style.removeProperty('--settle-x')
+        element.style.removeProperty('--settle-y')
+      })
+    }
+  }, [pebbles])
+
+  function capturePebblePositions() {
+    const positions = previousPositionsRef.current
+    positions.clear()
+    pebbleRefs.current.forEach((element, id) => {
+      const rect = element.getBoundingClientRect()
+      positions.set(id, { left: rect.left, top: rect.top })
+    })
+  }
 
   function sortInto(colorId: Pebble['color'], pebbleId: number | null) {
     if (pebbleId === null) {
@@ -119,6 +170,7 @@ export default function PebbleSort({ onClose }: PebbleSortProps) {
       return
     }
 
+    capturePebblePositions()
     setPebbles(current => current.flatMap(item => {
       if (item.id === firstId) return [{ ...item, count: first.count + second.count }]
       if (item.id === secondId) return []
@@ -188,6 +240,7 @@ export default function PebbleSort({ onClose }: PebbleSortProps) {
     setSorted([])
     setSelectedId(null)
     setMoves(0)
+    previousPositionsRef.current.clear()
     playSound('shuffle')
     setMessage('Choose a pebble, then find its colour bowl.')
   }
@@ -259,15 +312,20 @@ export default function PebbleSort({ onClose }: PebbleSortProps) {
                   return (
                     <button
                       key={pebble.id}
-                      className={`pebble-stone${pebble.count > 1 ? ' is-bundle' : ''}${selectedId === pebble.id ? ' is-selected' : ''}${dragOffset?.id === pebble.id ? ' is-dragging' : ''}`}
+                      ref={element => {
+                        if (element) pebbleRefs.current.set(pebble.id, element)
+                        else pebbleRefs.current.delete(pebble.id)
+                      }}
                       data-pebble-id={pebble.id}
                       data-count={pebble.count}
+                      className={`pebble-stone${pebble.count > 1 ? ' is-bundle' : ''}${selectedId === pebble.id ? ' is-selected' : ''}${dragOffset?.id === pebble.id ? ' is-dragging' : ''}`}
                       style={{
                         '--stone-color': color.hex,
                         '--stone-light': color.light,
                         '--stone-index': index,
                         '--drag-x': `${dragOffset?.id === pebble.id ? dragOffset.x : 0}px`,
                         '--drag-y': `${dragOffset?.id === pebble.id ? dragOffset.y : 0}px`,
+                        '--settle-delay': `${(index % 4) * 24}ms`,
                       } as React.CSSProperties}
                       onPointerDown={event => handlePointerDown(event, pebble.id)}
                       onPointerMove={event => handlePointerMove(event, pebble.id)}
