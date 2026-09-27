@@ -3,6 +3,8 @@ import { useFrame } from '@react-three/fiber'
 import { Billboard, Text } from '@react-three/drei'
 import * as THREE from 'three'
 import { useCatProgress } from '../progression/CatProgressContext'
+import { useAudioContext } from '../audio/AudioContext'
+import { playMeow } from '../audio/meow'
 import type { CatDef } from './catData'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -26,6 +28,7 @@ export default function Cat({ def }: CatProps) {
   const bodyRef = useRef<THREE.Mesh>(null)
 
   const { isCatFound, findCat } = useCatProgress()
+  const { audioEnabled } = useAudioContext()
   const found = isCatFound(def.id)
 
   const [petting, setPetting] = useState(false)
@@ -39,11 +42,12 @@ export default function Cat({ def }: CatProps) {
 
   const handlePet = useCallback(() => {
     if (!found) findCat(def.id)
+    if (audioEnabled) playMeow()
     setPetting(true)
     setPetTimer(0)
     setShowHeart(true)
     setHeartTimer(0)
-  }, [found, findCat, def.id])
+  }, [found, findCat, def.id, audioEnabled])
 
   useFrame((_, delta) => {
     const group = groupRef.current
@@ -99,8 +103,8 @@ export default function Cat({ def }: CatProps) {
     >
       {/* ── Invisible Unified Hitbox ───────────────────────────── */}
       <mesh position={[0, 0.6, 0]}>
-        <boxGeometry args={[1.0, 1.3, 1.5]} />
-        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+        <boxGeometry args={[1.8, 1.5, 2.0]} />
+        <meshBasicMaterial transparent opacity={0} colorWrite={false} depthWrite={false} />
       </mesh>
 
       {/* ── Body ─────────────────────────────────── */}
