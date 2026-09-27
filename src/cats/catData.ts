@@ -90,4 +90,15 @@ export const CAT_REGISTRY: CatDef[] = [
     socialDrive: 10,
     socialFatigue: 8,
   },
+  {
+    id: 'cali',
+    name: 'Cali',
+    description: 'A beautiful calico with white, orange, and black patches. Curious and gentle.',
+    position: [-7, 0, 3],
+    rotation: [0, 1.5, 0],
+    color: '#ffffff',
+    accentColor: '#D4804A',
+    socialDrive: 5,
+    socialFatigue: 20,
+  },
 ]
