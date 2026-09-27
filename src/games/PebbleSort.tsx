@@ -29,6 +29,25 @@ interface PebbleGesture {
   moved: boolean
 }
 
+function hasAdjacentMatch(pebbles: Pebble[]) {
+  return pebbles.some((pebble, index) => pebbles[index + 1]?.color === pebble.color)
+}
+
+function shuffledOrder(pebbles: Pebble[]) {
+  const shuffled = [...pebbles]
+  if (shuffled.length < 2) return shuffled
+
+  for (let attempt = 0; attempt < 20; attempt++) {
+    for (let index = shuffled.length - 1; index > 0; index--) {
+      const swapIndex = Math.floor(Math.random() * (index + 1))
+      ;[shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]]
+    }
+    if (hasAdjacentMatch(shuffled)) return shuffled
+  }
+
+  return shuffled
+}
+
 function shuffledPebbles(): Pebble[] {
   const pebbles = COLORS.flatMap(color =>
     Array.from({ length: PEBBLES_PER_COLOR }, (_, index) => ({
@@ -38,11 +57,7 @@ function shuffledPebbles(): Pebble[] {
     })),
   )
 
-  for (let index = pebbles.length - 1; index > 0; index--) {
-    const swapIndex = Math.floor(Math.random() * (index + 1))
-    ;[pebbles[index], pebbles[swapIndex]] = [pebbles[swapIndex], pebbles[index]]
-  }
-  return pebbles
+  return shuffledOrder(pebbles)
 }
 
 export default function PebbleSort({ onClose }: PebbleSortProps) {
@@ -170,16 +185,20 @@ export default function PebbleSort({ onClose }: PebbleSortProps) {
       return
     }
 
-    capturePebblePositions()
-    setPebbles(current => current.flatMap(item => {
+    const mergedPebbles = pebbles.flatMap(item => {
       if (item.id === firstId) return [{ ...item, count: first.count + second.count }]
       if (item.id === secondId) return []
       return [item]
-    }))
+    })
+    const needsReshuffle = mergedPebbles.length > 1 && !hasAdjacentMatch(mergedPebbles)
+    capturePebblePositions()
+    setPebbles(needsReshuffle ? shuffledOrder(mergedPebbles) : mergedPebbles)
     playSound('combine')
     setSelectedId(null)
     const colorName = COLORS.find(color => color.id === first.color)?.name
-    setMessage(`Joined into a bundle! Drop it into the ${colorName} bowl.`)
+    setMessage(needsReshuffle
+      ? `Joined into a bundle! The pebbles shifted to keep a match open.`
+      : `Joined into a bundle! Drop it into the ${colorName} bowl.`)
   }
 
   function handlePointerDown(event: ReactPointerEvent<HTMLButtonElement>, pebbleId: number) {
@@ -260,7 +279,7 @@ export default function PebbleSort({ onClose }: PebbleSortProps) {
     }
 
     setPebbles(current => {
-      const shuffledLoose = current.filter(pebble => pebble.count === 1)
+      const shuffledLoose = shuffledOrder(current.filter(pebble => pebble.count === 1))
       for (let index = shuffledLoose.length - 1; index > 0; index--) {
         const swapIndex = Math.floor(Math.random() * (index + 1))
         ;[shuffledLoose[index], shuffledLoose[swapIndex]] = [shuffledLoose[swapIndex], shuffledLoose[index]]
