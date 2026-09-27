@@ -21,6 +21,11 @@ interface CatProps {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Shared position registry - ALL Cat instances share this
+// ─────────────────────────────────────────────────────────────────────────────
+const catPositionsRegistry: Record<string, THREE.Vector3> = {}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Cat wandering and social behavior constants
 // ─────────────────────────────────────────────────────────────────────────────
 const PET_DURATION = 0.6      // seconds for scale-pulse animation
@@ -64,7 +69,6 @@ export default function Cat({ def }: CatProps) {
   const [cooldownTimer, setCooldownTimer] = useState(0)
   const [interactionTimer, setInteractionTimer] = useState(0)
   const [showFriendHeart, setShowFriendHeart] = useState(false)
-  const [lastSocialized, setLastSocialized] = useState<number>(0)
 
   // Current position state (needed for movement since def.position is immutable)
   const [catPosition, setCatPosition] = useState<THREE.Vector3>(() => {
@@ -76,9 +80,7 @@ export default function Cat({ def }: CatProps) {
   const idlePhaseRef = useRef(Math.random() * Math.PI * 2)
   const wanderTimerRef = useRef(0)
 
-  // Shared ref for all cats to track each other's positions
-  // Each cat updates its own position and checks others
-  const sharedCatPositionsRef = useRef<Record<string, THREE.Vector3>>({})
+  // Use the shared module-level registry
   const ownCatId = def.id
 
   // Log when behavior starts (only once per cat)
@@ -129,8 +131,70 @@ export default function Cat({ def }: CatProps) {
       })
     }
 
-    // Update shared position registry for social interactions
-    sharedCatPositionsRef.current[ownCatId] = group.position.clone()
+    // ── Collision Physics Check (for all states) ───────────────────
+    // First, update own position in registry
+    catPositionsRegistry[ownCatId] = group.position.clone()
+    
+    let collisionVector = new THREE.Vector3(0, 0, 0)
+    
+    // Check other cats (using positions from registry)
+    Object.entries(catPositionsRegistry).forEach(([otherId, otherPos]) => {
+      if (otherId !== ownCatId) {
+        const toOther = new THREE.Vector3().subVectors(otherPos, group.position)
+        const distance = toOther.length()
+        
+        if (distance < COLLISION_RADIUS * 1.5) {
+          // Strong repulsion to prevent overlap
+          toOther.normalize()
+          const repulsionStrength = Math.max(0, (COLLISION_RADIUS * 1.5 - distance) * 8)
+          collisionVector.add(toOther.multiplyScalar(repulsionStrength))
+        }
+      }
+    })
+    
+    // Check room boundaries (walls)
+    const roomW = 20
+    const roomD = 24
+    const wallMargin = 1.0
+    
+    if (group.position.x < -roomW/2 + wallMargin) collisionVector.x += 3.0
+    if (group.position.x > roomW/2 - wallMargin) collisionVector.x -= 3.0
+    if (group.position.z < -roomD/2 + wallMargin) collisionVector.z += 3.0
+    if (group.position.z > roomD/2 - wallMargin) collisionVector.z -= 3.0
+    
+    // Apply collision repulsion
+    if (collisionVector.length() > 0) {
+      collisionVector.normalize()
+      collisionVector.y = 0
+      
+      group.position.x += collisionVector.x * WANDER_SPEED * 4 * delta
+      group.position.z += collisionVector.z * WANDER_SPEED * 4 * delta
+      
+      setCatPosition(new THREE.Vector3(group.position.x, group.position.y, group.position.z))
+    }
+    
+    // If still overlapping after physics, force separate (emergency)
+    Object.entries(catPositionsRegistry).forEach(([otherId, otherPos]) => {
+      if (otherId !== ownCatId) {
+        const toOther = new THREE.Vector3().subVectors(otherPos, group.position)
+        const distance = toOther.length()
+        
+        if (distance < COLLISION_RADIUS * 1.2) {
+          // Emergency separation - push away hard
+          toOther.normalize()
+          const separationForce = COLLISION_RADIUS * 2 - distance
+          group.position.x += toOther.x * separationForce * 2
+          group.position.z += toOther.z * separationForce * 2
+          setCatPosition(new THREE.Vector3(group.position.x, group.position.y, group.position.z))
+          
+          // Also update own position in registry after emergency separation
+          catPositionsRegistry[ownCatId] = group.position.clone()
+        }
+      }
+    })
+    
+    // Re-update registry after any emergency separation
+    catPositionsRegistry[ownCatId] = group.position.clone()
 
       // Heart countdown
     if (showHeart) {
@@ -181,33 +245,34 @@ export default function Cat({ def }: CatProps) {
         // Wander for a duration, then possibly socialize
         if (wanderTimerRef.current >= WANDER_CHANGE_DIR) {
           // Check for nearby found cats using shared position registry
-          const nearbyCat = Object.entries(sharedCatPositionsRef.current).find(
+          const nearbyCat = Object.entries(catPositionsRegistry).find(
             ([id, pos]) => id !== ownCatId && pos.distanceTo(group.position) < SOCIAL_RADIUS && isCatFound(id)
           )
           
           if (nearbyCat) {
-            // Check if this cat has social cooldown for this specific partner
-            const partnerId = nearbyCat[0]
-            // Check social cooldown (time since last socialization with any cat)
-            const timeSinceSocial = Date.now() - lastSocialized
-            const socialChance = (socialDrive / 10) * 0.5 // 0-0.5 based on drive
+            // Debug: Log when cats detect each other
+            console.log(`[Cat ${def.name}] Detected nearby cat: ${nearbyCat[0]} (distance: ${nearbyCat[1].distanceTo(group.position).toFixed(2)}m)`)
             
-            // Only approach if:
-            // 1. Random chance based on social drive passes, AND
-            // 2. Haven't socialized with this cat recently
-            const shouldSocialize = timeSinceSocial > 1000 && Math.random() < socialChance
+            // Check if this cat is willing to socialize based on drive
+            const partnerId = nearbyCat[0]
+            const socialChance = socialDrive / 10 // 0-1 based on drive
+            
+            // Only approach if random chance based on social drive passes
+            const shouldSocialize = Math.random() < socialChance
             
             if (shouldSocialize) {
               // Find a social target
               const socialCat = CAT_REGISTRY.find(c => c.id === partnerId)
               if (socialCat) {
                 setSocialTarget(partnerId)
-                const socialPos = sharedCatPositionsRef.current[partnerId]
+                const socialPos = catPositionsRegistry[partnerId]
                 setTargetPos(socialPos.clone().add(new THREE.Vector3((Math.random() - 0.5) * 1.5, 0, (Math.random() - 0.5) * 1.5)))
                 setCatState('SOCIAL')
                 wanderTimerRef.current = 0
-                console.log(`[Cat ${def.name}] Approaching social partner`)
+                console.log(`[Cat ${def.name}] Approaching social partner (drive: ${socialDrive})`)
               }
+            } else {
+              console.log(`[Cat ${def.name}] Skipping social (drive: ${socialDrive}, chance: ${socialChance.toFixed(2)})`)
             }
           } else {
             // Pick a new random wander target
@@ -257,7 +322,7 @@ export default function Cat({ def }: CatProps) {
       } else if (catState === 'SOCIAL') {
         // Move toward social target
         if (socialTarget && targetPos) {
-          const targetCat = sharedCatPositionsRef.current[socialTarget]
+          const targetCat = catPositionsRegistry[socialTarget]
           if (targetCat) {
             const direction = new THREE.Vector3().subVectors(targetPos, group.position)
             const distance = direction.length()
@@ -289,7 +354,6 @@ export default function Cat({ def }: CatProps) {
                   setTargetPos(null)
                   setInteractionTimer(0)
                   setShowFriendHeart(false)
-                  setLastSocialized(Date.now())
                   console.log(`[Cat ${def.name}] Social interaction complete`)
                   return 0
                 }
@@ -305,36 +369,6 @@ export default function Cat({ def }: CatProps) {
           }
         }
       } else if (catState === 'COOLDOWN') {
-        // ── Collision Physics Check ─────────────────────────────────
-        // Check all cats for collisions and apply repulsion
-        let collisionVector = new THREE.Vector3(0, 0, 0)
-        
-        Object.entries(sharedCatPositionsRef.current).forEach(([otherId, otherPos]) => {
-          if (otherId !== ownCatId) {
-            const toOther = new THREE.Vector3().subVectors(otherPos, group.position)
-            const distance = toOther.length()
-            
-            if (distance < COLLISION_RADIUS * 2) {
-              // Normalize and apply repulsion (stronger when closer)
-              toOther.normalize()
-              const repulsionStrength = (COLLISION_RADIUS * 2 - distance) * 2
-              collisionVector.add(toOther.multiplyScalar(repulsionStrength))
-            }
-          }
-        })
-        
-        // Apply collision repulsion
-        if (collisionVector.length() > 0) {
-          collisionVector.normalize()
-          collisionVector.y = 0 // Keep movement on XZ plane
-          
-          // Push away from collided cats
-          group.position.x += collisionVector.x * WANDER_SPEED * 1.5 * delta
-          group.position.z += collisionVector.z * WANDER_SPEED * 1.5 * delta
-          
-          setCatPosition(new THREE.Vector3(group.position.x, group.position.y, group.position.z))
-        }
-        
         // ── Cooldown behavior ───────────────────────────────────────
         // Decrease cooldown timer
         setCooldownTimer(prev => {
