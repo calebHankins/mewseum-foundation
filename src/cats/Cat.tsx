@@ -31,12 +31,14 @@ const ROTATION_SPEED = 2.5    // radians per second
 const WANDER_CHANGE_DIR = 1.5 // seconds between direction changes
 const SOCIAL_RADIUS = 3.5     // meters to consider another cat "nearby"
 const SOCIAL_INTERACTION = 2.5 // seconds social interaction lasts
+const PET_COOLDOWN = 8        // seconds cat stays near player after being pet
+const STAY_NEAR_PLAYER_RADIUS = 5 // meters to stay near player
 // Removed unused constants for cleaner code
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Cat behavior states
 // ─────────────────────────────────────────────────────────────────────────────
-type CatState = 'IDLE' | 'WANDER' | 'SOCIAL' | 'REST'
+type CatState = 'IDLE' | 'WANDER' | 'SOCIAL' | 'REST' | 'COOLDOWN'
 
 export default function Cat({ def }: CatProps) {
   const groupRef = useRef<THREE.Group>(null)
@@ -55,6 +57,7 @@ export default function Cat({ def }: CatProps) {
   const [catState, setCatState] = useState<CatState>('IDLE')
   const [targetPos, setTargetPos] = useState<THREE.Vector3 | null>(null)
   const [socialTarget, setSocialTarget] = useState<string | null>(null)
+  const [cooldownTimer, setCooldownTimer] = useState(0)
 
   // Current position state (needed for movement since def.position is immutable)
   const [catPosition, setCatPosition] = useState<THREE.Vector3>(() => {
@@ -83,7 +86,13 @@ export default function Cat({ def }: CatProps) {
     setPetTimer(0)
     setShowHeart(true)
     setHeartTimer(0)
-  }, [found, findCat, def.id, audioEnabled])
+    // Set cooldown state - cat will stay near player for a while
+    setCatState('COOLDOWN')
+    setCooldownTimer(PET_COOLDOWN)
+    // Pick a target near the player
+    setTargetPos(new THREE.Vector3(groupRef.current?.position.x ?? def.position[0], groupRef.current?.position.y ?? def.position[1], groupRef.current?.position.z ?? def.position[2]))
+    console.log(`[Cat ${def.name}] Petted! Entering cooldown for ${PET_COOLDOWN}s`)
+  }, [found, findCat, def.id, def.position, audioEnabled])
 
   useFrame((_, delta) => {
     const group = groupRef.current
@@ -126,17 +135,31 @@ export default function Cat({ def }: CatProps) {
 
       // State machine for cat behavior
       if (catState === 'IDLE') {
-        // After a short delay, start wandering
-        if (wanderTimerRef.current >= 2.0) {
-          setCatState('WANDER')
-          wanderTimerRef.current = 0
-          // Pick a random wander target
-          const wanderRangeX = 6
-          const wanderRangeZ = 10
-          const newX = def.position[0] + (Math.random() - 0.5) * wanderRangeX
-          const newZ = def.position[2] + (Math.random() - 0.5) * wanderRangeZ
-          setTargetPos(new THREE.Vector3(newX, group.position.y, newZ))
-          console.log(`[Cat ${def.name}] Starting wander to [${newX.toFixed(1)}, ${newZ.toFixed(1)}]`)
+        // If in cooldown, stay close to player (current position)
+        if (cooldownTimer > 0) {
+          if (wanderTimerRef.current >= 2.0) {
+            // Stay within a small radius during cooldown
+            const maxDist = STAY_NEAR_PLAYER_RADIUS * 0.5
+            const newX = group.position.x + (Math.random() - 0.5) * maxDist
+            const newZ = group.position.z + (Math.random() - 0.5) * maxDist
+            setTargetPos(new THREE.Vector3(newX, group.position.y, newZ))
+            setCatState('WANDER')
+            wanderTimerRef.current = 0
+            console.log(`[Cat ${def.name}] Staying close during cooldown`)
+          }
+        } else {
+          // After a short delay, start wandering
+          if (wanderTimerRef.current >= 2.0) {
+            setCatState('WANDER')
+            wanderTimerRef.current = 0
+            // Pick a random wander target
+            const wanderRangeX = 6
+            const wanderRangeZ = 10
+            const newX = def.position[0] + (Math.random() - 0.5) * wanderRangeX
+            const newZ = def.position[2] + (Math.random() - 0.5) * wanderRangeZ
+            setTargetPos(new THREE.Vector3(newX, group.position.y, newZ))
+            console.log(`[Cat ${def.name}] Starting wander to [${newX.toFixed(1)}, ${newZ.toFixed(1)}]`)
+          }
         }
       } else if (catState === 'WANDER') {
         // Wander for a duration, then possibly socialize
@@ -235,6 +258,58 @@ export default function Cat({ def }: CatProps) {
                 console.log(`[Cat ${def.name}] Social interaction complete`)
               }
             }
+          }
+        }
+      } else if (catState === 'COOLDOWN') {
+        // Decrease cooldown timer
+        setCooldownTimer(prev => {
+          const next = prev - delta
+          if (next <= 0) {
+            // Cooldown complete, return to wandering
+            console.log(`[Cat ${def.name}] Cooldown complete, returning to wandering`)
+            return 0
+          }
+          return next
+        })
+        
+        // During cooldown, stay near the player's last known position
+        // The player's position is not directly available here, so we use a simple
+        // random wander near current position to simulate staying close
+        if (wanderTimerRef.current >= 1.0) {
+          // Pick a target within STAY_NEAR_PLAYER_RADIUS
+          const maxDist = STAY_NEAR_PLAYER_RADIUS
+          const newX = group.position.x + (Math.random() - 0.5) * maxDist * 0.8
+          const newZ = group.position.z + (Math.random() - 0.5) * maxDist * 0.8
+          setTargetPos(new THREE.Vector3(newX, group.position.y, newZ))
+          wanderTimerRef.current = 0
+        }
+        
+        // Move toward target
+        if (targetPos) {
+          const direction = new THREE.Vector3().subVectors(targetPos, group.position)
+          const distance = direction.length()
+          direction.normalize()
+          
+          if (distance > 0.3) {
+            // Rotate toward target
+            const targetRotation = Math.atan2(direction.x, direction.z)
+            const currentRotation = group.rotation.y
+            const rotationDiff = targetRotation - currentRotation
+            
+            let rotDiff = rotationDiff
+            while (rotDiff > Math.PI) rotDiff -= Math.PI * 2
+            while (rotDiff < -Math.PI) rotDiff += Math.PI * 2
+            
+            group.rotation.y += rotDiff * ROTATION_SPEED * delta * 0.4
+            group.position.x += direction.x * (WANDER_SPEED * 0.5) * delta
+            group.position.z += direction.z * (WANDER_SPEED * 0.5) * delta
+            
+            // Update React state for next render
+            setCatPosition(new THREE.Vector3(group.position.x, group.position.y, group.position.z))
+          } else {
+            // Reached target, idling briefly before picking new target
+            setCatState('IDLE')
+            wanderTimerRef.current = 0
           }
         }
       }
