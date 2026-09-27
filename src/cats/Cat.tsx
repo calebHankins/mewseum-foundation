@@ -18,21 +18,21 @@ interface CatProps {
 }
 
 const PET_DURATION = 0.6   // seconds for scale-pulse animation
-const IDLE_SPEED   = 0.8   // idle breathing cycle speed
+const IDLE_SPEED = 0.8   // idle breathing cycle speed
 const HEART_DURATION = 1.2 // seconds heart stays visible
 
 export default function Cat({ def }: CatProps) {
   const groupRef = useRef<THREE.Group>(null)
-  const bodyRef  = useRef<THREE.Mesh>(null)
+  const bodyRef = useRef<THREE.Mesh>(null)
 
   const { isCatFound, findCat } = useCatProgress()
   const found = isCatFound(def.id)
 
-  const [petting, setPetting]     = useState(false)
-  const [petTimer, setPetTimer]   = useState(0)
+  const [petting, setPetting] = useState(false)
+  const [petTimer, setPetTimer] = useState(0)
   const [showHeart, setShowHeart] = useState(false)
   const [heartTimer, setHeartTimer] = useState(0)
-  const [hovered, setHovered]     = useState(false)
+  const [hovered, setHovered] = useState(false)
 
   // Idle breathing oscillation
   const idlePhaseRef = useRef(Math.random() * Math.PI * 2)
@@ -47,7 +47,7 @@ export default function Cat({ def }: CatProps) {
 
   useFrame((_, delta) => {
     const group = groupRef.current
-    const body  = bodyRef.current
+    const body = bodyRef.current
     if (!group || !body) return
 
     idlePhaseRef.current += delta * IDLE_SPEED
@@ -81,8 +81,8 @@ export default function Cat({ def }: CatProps) {
     }
   })
 
-  const bodyColor    = def.color
-  const accentColor  = def.accentColor
+  const bodyColor = def.color
+  const accentColor = def.accentColor
 
   // Unfound cats are translucent until found for the first time
   const opacity = found ? 1 : 0.0
@@ -97,6 +97,12 @@ export default function Cat({ def }: CatProps) {
       onPointerOver={() => setHovered(true)}
       onPointerOut={() => setHovered(false)}
     >
+      {/* ── Invisible Unified Hitbox ───────────────────────────── */}
+      <mesh position={[0, 0.6, 0]}>
+        <boxGeometry args={[1.0, 1.3, 1.5]} />
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+      </mesh>
+
       {/* ── Body ─────────────────────────────────── */}
       <mesh ref={bodyRef} position={[0, 0.38, 0]} castShadow>
         <boxGeometry args={[0.55, 0.42, 0.72]} />
