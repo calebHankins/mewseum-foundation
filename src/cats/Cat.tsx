@@ -33,12 +33,13 @@ const SOCIAL_RADIUS = 3.5     // meters to consider another cat "nearby"
 const SOCIAL_INTERACTION = 2.5 // seconds social interaction lasts
 const PET_COOLDOWN = 8        // seconds cat stays near player after being pet
 const STAY_NEAR_PLAYER_RADIUS = 5 // meters to stay near player
+const COLLISION_RADIUS = 0.6  // meters at which cats push away from each other
 // Removed unused constants for cleaner code
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Cat behavior states
 // ─────────────────────────────────────────────────────────────────────────────
-type CatState = 'IDLE' | 'WANDER' | 'SOCIAL' | 'REST' | 'COOLDOWN'
+type CatState = 'IDLE' | 'WANDER' | 'SOCIAL' | 'REST' | 'COOLDOWN' | 'PUSHBACK'
 
 export default function Cat({ def }: CatProps) {
   const groupRef = useRef<THREE.Group>(null)
@@ -47,6 +48,9 @@ export default function Cat({ def }: CatProps) {
   const { isCatFound, findCat } = useCatProgress()
   const { audioEnabled } = useAudioContext()
   const found = isCatFound(def.id)
+
+  // Get social properties with defaults
+  const socialDrive = def.socialDrive ?? 5
 
   // Behavior state
   const [petting, setPetting] = useState(false)
@@ -60,6 +64,7 @@ export default function Cat({ def }: CatProps) {
   const [cooldownTimer, setCooldownTimer] = useState(0)
   const [interactionTimer, setInteractionTimer] = useState(0)
   const [showFriendHeart, setShowFriendHeart] = useState(false)
+  const [lastSocialized, setLastSocialized] = useState<number>(0)
 
   // Current position state (needed for movement since def.position is immutable)
   const [catPosition, setCatPosition] = useState<THREE.Vector3>(() => {
@@ -180,16 +185,29 @@ export default function Cat({ def }: CatProps) {
             ([id, pos]) => id !== ownCatId && pos.distanceTo(group.position) < SOCIAL_RADIUS && isCatFound(id)
           )
           
-          if (nearbyCat && Math.random() < 0.35) {
-            // Find a social target
-            const socialCat = CAT_REGISTRY.find(c => c.id === nearbyCat[0])
-            if (socialCat) {
-              setSocialTarget(nearbyCat[0])
-              const socialPos = sharedCatPositionsRef.current[nearbyCat[0]]
-              setTargetPos(socialPos.clone().add(new THREE.Vector3((Math.random() - 0.5) * 1.5, 0, (Math.random() - 0.5) * 1.5)))
-              setCatState('SOCIAL')
-              wanderTimerRef.current = 0
-              console.log(`[Cat ${def.name}] Approaching social partner`)
+          if (nearbyCat) {
+            // Check if this cat has social cooldown for this specific partner
+            const partnerId = nearbyCat[0]
+            // Check social cooldown (time since last socialization with any cat)
+            const timeSinceSocial = Date.now() - lastSocialized
+            const socialChance = (socialDrive / 10) * 0.5 // 0-0.5 based on drive
+            
+            // Only approach if:
+            // 1. Random chance based on social drive passes, AND
+            // 2. Haven't socialized with this cat recently
+            const shouldSocialize = timeSinceSocial > 1000 && Math.random() < socialChance
+            
+            if (shouldSocialize) {
+              // Find a social target
+              const socialCat = CAT_REGISTRY.find(c => c.id === partnerId)
+              if (socialCat) {
+                setSocialTarget(partnerId)
+                const socialPos = sharedCatPositionsRef.current[partnerId]
+                setTargetPos(socialPos.clone().add(new THREE.Vector3((Math.random() - 0.5) * 1.5, 0, (Math.random() - 0.5) * 1.5)))
+                setCatState('SOCIAL')
+                wanderTimerRef.current = 0
+                console.log(`[Cat ${def.name}] Approaching social partner`)
+              }
             }
           } else {
             // Pick a new random wander target
@@ -271,6 +289,7 @@ export default function Cat({ def }: CatProps) {
                   setTargetPos(null)
                   setInteractionTimer(0)
                   setShowFriendHeart(false)
+                  setLastSocialized(Date.now())
                   console.log(`[Cat ${def.name}] Social interaction complete`)
                   return 0
                 }
@@ -286,6 +305,37 @@ export default function Cat({ def }: CatProps) {
           }
         }
       } else if (catState === 'COOLDOWN') {
+        // ── Collision Physics Check ─────────────────────────────────
+        // Check all cats for collisions and apply repulsion
+        let collisionVector = new THREE.Vector3(0, 0, 0)
+        
+        Object.entries(sharedCatPositionsRef.current).forEach(([otherId, otherPos]) => {
+          if (otherId !== ownCatId) {
+            const toOther = new THREE.Vector3().subVectors(otherPos, group.position)
+            const distance = toOther.length()
+            
+            if (distance < COLLISION_RADIUS * 2) {
+              // Normalize and apply repulsion (stronger when closer)
+              toOther.normalize()
+              const repulsionStrength = (COLLISION_RADIUS * 2 - distance) * 2
+              collisionVector.add(toOther.multiplyScalar(repulsionStrength))
+            }
+          }
+        })
+        
+        // Apply collision repulsion
+        if (collisionVector.length() > 0) {
+          collisionVector.normalize()
+          collisionVector.y = 0 // Keep movement on XZ plane
+          
+          // Push away from collided cats
+          group.position.x += collisionVector.x * WANDER_SPEED * 1.5 * delta
+          group.position.z += collisionVector.z * WANDER_SPEED * 1.5 * delta
+          
+          setCatPosition(new THREE.Vector3(group.position.x, group.position.y, group.position.z))
+        }
+        
+        // ── Cooldown behavior ───────────────────────────────────────
         // Decrease cooldown timer
         setCooldownTimer(prev => {
           const next = prev - delta
