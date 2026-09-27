@@ -15,6 +15,7 @@ const COLORS = [
 interface Pebble {
   id: number
   color: typeof COLORS[number]['id']
+  count: number
 }
 
 interface PebbleGesture {
@@ -29,6 +30,7 @@ function shuffledPebbles(): Pebble[] {
     Array.from({ length: 4 }, (_, index) => ({
       id: COLORS.indexOf(color) * 4 + index,
       color: color.id,
+      count: 1,
     })),
   )
 
@@ -48,7 +50,8 @@ export default function PebbleSort({ onClose }: PebbleSortProps) {
   const [message, setMessage] = useState('Choose a pebble, then find its colour bowl.')
   const gestureRef = useRef<PebbleGesture | null>(null)
   const suppressClickRef = useRef<number | null>(null)
-  const complete = sorted.length === 16
+  const sortedCount = sorted.reduce((total, pebble) => total + pebble.count, 0)
+  const complete = sortedCount === 16
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -78,6 +81,39 @@ export default function PebbleSort({ onClose }: PebbleSortProps) {
     setSorted(current => [...current, pebble])
     setSelectedId(null)
     setMessage('A lovely fit. Keep going.')
+  }
+
+  function arePebblesNearby(firstId: number, secondId: number) {
+    const first = document.querySelector<HTMLElement>(`[data-pebble-id="${firstId}"]`)
+    const second = document.querySelector<HTMLElement>(`[data-pebble-id="${secondId}"]`)
+    if (!first || !second) return false
+
+    const firstRect = first.getBoundingClientRect()
+    const secondRect = second.getBoundingClientRect()
+    const firstX = firstRect.left + firstRect.width / 2
+    const firstY = firstRect.top + firstRect.height / 2
+    const secondX = secondRect.left + secondRect.width / 2
+    const secondY = secondRect.top + secondRect.height / 2
+    return Math.hypot(firstX - secondX, firstY - secondY) <= 92
+  }
+
+  function combinePebbles(firstId: number, secondId: number) {
+    const first = pebbles.find(item => item.id === firstId)
+    const second = pebbles.find(item => item.id === secondId)
+    if (!first || !second) return
+    if (first.color !== second.color) {
+      setMessage('Only pebbles of the same colour can combine.')
+      return
+    }
+
+    setPebbles(current => current.flatMap(item => {
+      if (item.id === firstId) return [{ ...item, count: first.count + second.count }]
+      if (item.id === secondId) return []
+      return [item]
+    }))
+    setSelectedId(null)
+    const colorName = COLORS.find(color => color.id === first.color)?.name
+    setMessage(`Joined into a bundle! Drop it into the ${colorName} bowl.`)
   }
 
   function handlePointerDown(event: ReactPointerEvent<HTMLButtonElement>, pebbleId: number) {
@@ -119,7 +155,15 @@ export default function PebbleSort({ onClose }: PebbleSortProps) {
     if (colorId && COLORS.some(color => color.id === colorId)) {
       sortInto(colorId as Pebble['color'], pebble.id)
     } else {
-      setMessage('Drop a pebble into one of the colour bowls.')
+      const target = document.elementsFromPoint(event.clientX, event.clientY)
+        .map(element => element.closest<HTMLElement>('[data-pebble-id]'))
+        .find((element): element is HTMLElement => element !== null)
+      const targetId = Number(target?.dataset.pebbleId)
+      if (target && targetId !== pebble.id) {
+        combinePebbles(pebble.id, targetId)
+      } else {
+        setMessage('Drop a pebble into a colour bowl or onto a matching pebble.')
+      }
     }
   }
 
@@ -146,7 +190,7 @@ export default function PebbleSort({ onClose }: PebbleSortProps) {
 
         <div className="pebble-status" aria-live="polite">
           <span>{complete ? 'All gathered' : message}</span>
-          <span className="pebble-progress">{sorted.length} <i>/</i> 16 <b>·</b> {moves} moves</span>
+          <span className="pebble-progress">{sortedCount} <i>/</i> 16 <b>·</b> {moves} moves</span>
         </div>
 
         {complete ? (
@@ -165,7 +209,9 @@ export default function PebbleSort({ onClose }: PebbleSortProps) {
                   return (
                     <button
                       key={pebble.id}
-                      className={`pebble-stone${selectedId === pebble.id ? ' is-selected' : ''}${dragOffset?.id === pebble.id ? ' is-dragging' : ''}`}
+                      className={`pebble-stone${pebble.count > 1 ? ' is-bundle' : ''}${selectedId === pebble.id ? ' is-selected' : ''}${dragOffset?.id === pebble.id ? ' is-dragging' : ''}`}
+                      data-pebble-id={pebble.id}
+                      data-count={pebble.count}
                       style={{
                         '--stone-color': color.hex,
                         '--stone-light': color.light,
@@ -185,10 +231,21 @@ export default function PebbleSort({ onClose }: PebbleSortProps) {
                           suppressClickRef.current = null
                           return
                         }
+                        if (selectedId !== null && selectedId !== pebble.id) {
+                          const selectedPebble = pebbles.find(item => item.id === selectedId)
+                          if (selectedPebble?.color === pebble.color) {
+                            if (arePebblesNearby(selectedId, pebble.id)) {
+                              combinePebbles(selectedId, pebble.id)
+                            } else {
+                              setMessage('Matching pebbles need to be close together to combine.')
+                            }
+                            return
+                          }
+                        }
                         setSelectedId(current => current === pebble.id ? null : pebble.id)
                         setMessage(`Find the ${color.name} bowl.`)
                       }}
-                      aria-label={`${color.name} pebble${selectedId === pebble.id ? ', selected' : ''}`}
+                      aria-label={`${color.name} ${pebble.count > 1 ? `bundle of ${pebble.count} pebbles` : 'pebble'}${selectedId === pebble.id ? ', selected' : ''}`}
                       aria-pressed={selectedId === pebble.id}
                     />
                   )
@@ -197,7 +254,9 @@ export default function PebbleSort({ onClose }: PebbleSortProps) {
               </div>
               <div className="pebble-bowls" aria-label="Colour bowls">
                 {COLORS.map(color => {
-                  const count = sorted.filter(pebble => pebble.color === color.id).length
+                  const count = sorted
+                    .filter(pebble => pebble.color === color.id)
+                    .reduce((total, pebble) => total + pebble.count, 0)
                   return (
                     <button
                       key={color.id}
@@ -218,7 +277,7 @@ export default function PebbleSort({ onClose }: PebbleSortProps) {
               </div>
             </div>
             <footer className="pebble-footer">
-              <span>Drag each pebble to its matching bowl, or tap to select.</span>
+              <span>Combine nearby matching pebbles into bundles, then sort them into bowls.</span>
               <button className="pebble-reset" onClick={reset} title="Shuffle pebbles">Shuffle</button>
             </footer>
           </>

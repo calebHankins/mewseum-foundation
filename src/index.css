@@ -140,6 +140,7 @@ img, canvas {
 }
 
 .pebble-stone {
+  position: relative;
   width: 57px;
   height: 43px;
   flex: 0 0 57px;
@@ -151,6 +152,24 @@ img, canvas {
   touch-action: none;
   transform: rotate(calc((var(--stone-index) - 7) * 3deg));
   transition: transform 130ms ease, box-shadow 130ms ease;
+}
+
+.pebble-stone.is-bundle {
+  width: 64px;
+  height: 48px;
+  flex-basis: 64px;
+}
+
+.pebble-stone.is-bundle::after {
+  content: "x" attr(data-count);
+  position: absolute;
+  right: -7px;
+  bottom: -5px;
+  padding: 2px 4px;
+  color: #f0e2c5;
+  background: #514638;
+  border-radius: 8px;
+  font: 10px 'Courier New', monospace;
 }
 
 .pebble-stone:hover { transform: translateY(-4px) rotate(0); }
