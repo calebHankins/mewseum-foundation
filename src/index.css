@@ -199,7 +199,15 @@ img, canvas {
 }
 
 .pebble-bowl:hover { transform: translateY(-3px); filter: brightness(1.08); }
-.pebble-bowl-name { font: 12px 'Courier New', monospace; }
+.pebble-bowl-name {
+  padding: 3px 7px;
+  color: #352c22;
+  background: #f0e2c5;
+  border: 1px solid #69533a;
+  border-radius: 3px;
+  box-shadow: 0 1px 0 #392c1f66;
+  font: 700 13px 'Courier New', monospace;
+}
 
 .pebble-bowl-stones {
   min-height: 27px;
@@ -268,6 +276,6 @@ img, canvas {
   .pebble-stone { width: 48px; height: 37px; flex-basis: 48px; }
   .pebble-bowls { gap: 7px; margin-top: 12px; }
   .pebble-bowl { min-height: 108px; padding: 10px 3px 8px; }
-  .pebble-bowl-name { font-size: 10px; }
+  .pebble-bowl-name { font-size: 11px; }
   .pebble-footer { align-items: flex-start; font-size: 10px; }
 }
