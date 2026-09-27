@@ -145,17 +145,17 @@ export default function CatTalisman({ position = [-1.5, 0, 12] }: CatTalismanPro
       onPointerOut={() => setHovered(false)}
     >
       <group ref={orbGroupRef}>
-        {/* ── Glowing Orb Core ──────────────────────────────────── */}
+        {/* ── Cat-Eye Sclera ────────────────────────────────────── */}
         <mesh castShadow>
           <sphereGeometry args={[0.4, 16, 16]} />
-          <meshBasicMaterial color="#D4955A" />
+          <meshBasicMaterial color="#E8E3D8" />
         </mesh>
 
         {/* ── Cat-Eye Iris ──────────────────────────────────────── */}
         <group ref={irisGroupRef}>
-          <mesh position={[0, 0, -0.39]} scale={[0.12, 0.19, 0.025]}>
+          <mesh position={[0, 0, -0.39]} scale={[0.16, 0.24, 0.03]}>
             <sphereGeometry args={[1, 16, 12]} />
-            <meshBasicMaterial color="#F4B460" />
+            <meshBasicMaterial color="#D8953F" />
           </mesh>
 
           {/* ── Cat-Eye Pupil ───────────────────────────────────── */}
