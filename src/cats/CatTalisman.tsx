@@ -8,6 +8,7 @@ import { CAT_REGISTRY } from './catData'
 
 const TALISMAN_COOLDOWN = 3
 const ACTIVATION_DURATION = 0.8
+const EYE_FORWARD = new THREE.Vector3(0, 0, -1)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CatTalisman — A glowing sanctuary object that helps players find stray cats
@@ -20,10 +21,13 @@ interface CatTalismanProps {
 
 export default function CatTalisman({ position = [-1.5, 0, 12] }: CatTalismanProps) {
   const groupRef = useRef<THREE.Group>(null)
+  const orbGroupRef = useRef<THREE.Group>(null)
   const irisGroupRef = useRef<THREE.Group>(null)
+  const pupilGroupRef = useRef<THREE.Group>(null)
   const outerRingRef = useRef<THREE.Mesh>(null)
   const innerRingRef = useRef<THREE.Mesh>(null)
   const cameraLocalPosition = useRef(new THREE.Vector3())
+  const targetOrbQuaternion = useRef(new THREE.Quaternion())
   const pulseRef = useRef(0)
   const cooldownRef = useRef(0)
   const activationRef = useRef(0)
@@ -80,9 +84,17 @@ export default function CatTalisman({ position = [-1.5, 0, 12] }: CatTalismanPro
     pulseRef.current += delta * 1.5
     targetY.current = initialPos.current.y + 1.5 + Math.sin(pulseRef.current) * 0.15
     group.position.y = targetY.current
+    group.updateMatrixWorld(true)
 
-    // Slow rotation
-    group.rotation.y += delta * 0.1
+    const orbGroup = orbGroupRef.current
+    if (orbGroup) {
+      const cameraPosition = state.camera.getWorldPosition(cameraLocalPosition.current)
+      group.worldToLocal(cameraPosition)
+      if (cameraPosition.lengthSq() > 0) {
+        targetOrbQuaternion.current.setFromUnitVectors(EYE_FORWARD, cameraPosition.normalize())
+        orbGroup.quaternion.slerp(targetOrbQuaternion.current, 1 - Math.exp(-delta * 5))
+      }
+    }
 
     if (outerRingRef.current && innerRingRef.current) {
       outerRingRef.current.rotation.x += delta * 0.9
@@ -92,21 +104,14 @@ export default function CatTalisman({ position = [-1.5, 0, 12] }: CatTalismanPro
     }
 
     const irisGroup = irisGroupRef.current
-    if (irisGroup) {
-      const cameraPosition = state.camera.getWorldPosition(cameraLocalPosition.current)
-      group.worldToLocal(cameraPosition)
-      const gazeX = THREE.MathUtils.clamp(
-        (cameraPosition.x / Math.max(Math.abs(cameraPosition.z), 0.5)) * 0.045,
-        -0.04,
-        0.04,
-      )
-      const gazeY = THREE.MathUtils.clamp(
-        (cameraPosition.y / Math.max(Math.abs(cameraPosition.z), 0.5)) * 0.035,
-        -0.03,
-        0.03,
-      )
-      irisGroup.position.x = gazeX + Math.sin(pulseRef.current * 14) * 0.0025
-      irisGroup.position.y = gazeY + Math.sin(pulseRef.current * 19 + 1) * 0.002
+    const pupilGroup = pupilGroupRef.current
+    if (irisGroup && pupilGroup) {
+      const quiverX = Math.sin(pulseRef.current * 14) * 0.0025
+      const quiverY = Math.sin(pulseRef.current * 19 + 1) * 0.002
+      irisGroup.position.x = THREE.MathUtils.damp(irisGroup.position.x, quiverX * 0.35, 8, delta)
+      irisGroup.position.y = THREE.MathUtils.damp(irisGroup.position.y, quiverY * 0.35, 8, delta)
+      pupilGroup.position.x = THREE.MathUtils.damp(pupilGroup.position.x, quiverX, 8, delta)
+      pupilGroup.position.y = THREE.MathUtils.damp(pupilGroup.position.y, quiverY, 8, delta)
     }
 
     if (activationRef.current < ACTIVATION_DURATION) {
@@ -139,28 +144,32 @@ export default function CatTalisman({ position = [-1.5, 0, 12] }: CatTalismanPro
       onPointerOver={() => setHovered(true)}
       onPointerOut={() => setHovered(false)}
     >
-      {/* ── Glowing Orb Core ────────────────────────────────────── */}
-      <mesh castShadow>
-        <sphereGeometry args={[0.4, 16, 16]} />
-        <meshBasicMaterial color="#D4955A" />
-      </mesh>
-
-      {/* ── Cat-Eye Iris ────────────────────────────────────────── */}
-      <group ref={irisGroupRef}>
-        <mesh position={[0, 0, -0.39]} scale={[0.12, 0.19, 0.025]}>
-          <sphereGeometry args={[1, 16, 12]} />
-          <meshBasicMaterial color="#F4B460" />
+      <group ref={orbGroupRef}>
+        {/* ── Glowing Orb Core ──────────────────────────────────── */}
+        <mesh castShadow>
+          <sphereGeometry args={[0.4, 16, 16]} />
+          <meshBasicMaterial color="#D4955A" />
         </mesh>
 
-        {/* ── Cat-Eye Pupil ─────────────────────────────────────── */}
-        <mesh position={[0, 0, -0.422]} scale={[0.035, 0.14, 0.012]}>
-          <sphereGeometry args={[1, 12, 8]} />
-          <meshBasicMaterial color="#2A1712" />
-        </mesh>
-        <mesh position={[-0.045, 0.075, -0.425]}>
-          <sphereGeometry args={[0.018, 8, 6]} />
-          <meshBasicMaterial color="#FFF0C2" />
-        </mesh>
+        {/* ── Cat-Eye Iris ──────────────────────────────────────── */}
+        <group ref={irisGroupRef}>
+          <mesh position={[0, 0, -0.39]} scale={[0.12, 0.19, 0.025]}>
+            <sphereGeometry args={[1, 16, 12]} />
+            <meshBasicMaterial color="#F4B460" />
+          </mesh>
+
+          {/* ── Cat-Eye Pupil ───────────────────────────────────── */}
+          <group ref={pupilGroupRef}>
+            <mesh position={[0, 0, -0.422]} scale={[0.035, 0.14, 0.012]}>
+              <sphereGeometry args={[1, 12, 8]} />
+              <meshBasicMaterial color="#2A1712" />
+            </mesh>
+            <mesh position={[-0.045, 0.075, -0.425]}>
+              <sphereGeometry args={[0.018, 8, 6]} />
+              <meshBasicMaterial color="#FFF0C2" />
+            </mesh>
+          </group>
+        </group>
       </group>
 
       {/* ── Outer Radiance Ring (wireframe) ─────────────────────── */}
