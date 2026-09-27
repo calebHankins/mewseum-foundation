@@ -148,7 +148,7 @@ export default function CatTalisman({ position = [-1.5, 0, 12] }: CatTalismanPro
         {/* ── Cat-Eye Sclera ────────────────────────────────────── */}
         <mesh castShadow>
           <sphereGeometry args={[0.4, 16, 16]} />
-          <meshBasicMaterial color="#E8E3D8" />
+          <meshBasicMaterial color="#E2C49D" />
         </mesh>
 
         {/* ── Cat-Eye Iris ──────────────────────────────────────── */}
