@@ -26,7 +26,6 @@ export default function CatTalisman({ position = [-1.5, 0, 12] }: CatTalismanPro
   const cooldownRef = useRef(0)
   const activationRef = useRef(0)
   const [hovered, setHovered] = useState(false)
-  const [isCoolingDown, setIsCoolingDown] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [messageTimer, setMessageTimer] = useState(0)
 
@@ -50,14 +49,17 @@ export default function CatTalisman({ position = [-1.5, 0, 12] }: CatTalismanPro
   }, [foundCats])
 
   const handleInteract = useCallback(() => {
-    if (cooldownRef.current > 0) return
+    if (cooldownRef.current > 0) {
+      setMessage('The talisman is resting')
+      setMessageTimer(0)
+      return
+    }
 
     const unfoundCat = getUnfoundCat()
     if (unfoundCat) {
       findCat(unfoundCat.id)
       cooldownRef.current = TALISMAN_COOLDOWN
       activationRef.current = 0
-      setIsCoolingDown(true)
       setMessage(`Found ${unfoundCat.name}!`)
       setMessageTimer(0)
       console.log(`[CatTalisman] Found cat: ${unfoundCat.name}`)
@@ -97,7 +99,6 @@ export default function CatTalisman({ position = [-1.5, 0, 12] }: CatTalismanPro
 
     if (cooldownRef.current > 0) {
       cooldownRef.current = Math.max(0, cooldownRef.current - delta)
-      if (cooldownRef.current === 0) setIsCoolingDown(false)
     }
 
     // Message countdown
@@ -159,7 +160,7 @@ export default function CatTalisman({ position = [-1.5, 0, 12] }: CatTalismanPro
             outlineWidth={0.01}
             outlineColor="#1A1410"
           >
-            {isCoolingDown ? 'The talisman is resting' : 'Find a stray cat'}
+            Find a stray cat
           </Text>
         </Billboard>
       )}
