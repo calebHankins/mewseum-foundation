@@ -1,5 +1,7 @@
 import { Suspense } from 'react'
 import { Canvas } from '@react-three/fiber'
+import { createPointerEvents } from '@react-three/fiber'
+import type { ComputeFunction } from '@react-three/fiber'
 import * as THREE from 'three'
 import SanctuaryRoom from './environment/SanctuaryRoom'
 import Atmosphere from './environment/Atmosphere'
@@ -8,6 +10,30 @@ import CatTalisman from './cats/CatTalisman'
 import FrameRegistry from './frames/FrameRegistry'
 import PlayerController from './player/PlayerController'
 import PS1Pipeline from './shaders/PS1Pipeline'
+
+// ─────────────────────────────────────────────────────────────────────────────
+// centeredEvents — identical to R3F's default pointer events, except that when
+// the Pointer Lock API has captured the cursor we force the ray through NDC
+// (0, 0), i.e. the screen centre where the HUD reticle lives.
+// ─────────────────────────────────────────────────────────────────────────────
+function centeredEvents(store: Parameters<typeof createPointerEvents>[0]) {
+  const base = createPointerEvents(store)
+  // base.compute is typed as optional; assert it exists (it always does for createPointerEvents)
+  const baseFn = base.compute!
+  const compute: ComputeFunction = (event, state, previous) => {
+    if (document.pointerLockElement) {
+      // Pointer is locked → cursor is hidden → reticle (centre) is the aim point.
+      // Force the ray through NDC (0,0) so it matches the HUD crosshair exactly.
+      state.pointer.set(0, 0)
+      state.raycaster.setFromCamera(state.pointer, state.camera)
+    } else {
+      // Normal (unlocked) mode — use the true cursor position
+      baseFn(event, state, previous)
+    }
+  }
+  return { ...base, compute }
+}
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SceneLights — ambient + directional warm lighting
@@ -62,6 +88,7 @@ export default function Scene() {
         far: 80,
       }}
       style={{ background: '#1A1410' }}
+      events={centeredEvents}
     >
       <Suspense fallback={null}>
         {/* Navigation */}
