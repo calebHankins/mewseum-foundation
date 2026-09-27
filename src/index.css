@@ -1,0 +1,33 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Reset and base */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #1A1410;
+}
+
+/* Pixel rendering for all images (reinforces PS1 look) */
+img, canvas {
+  image-rendering: pixelated;
+}
+
+/* Custom scrollbar for any overlay panels */
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: #2A1F14;
+}
+::-webkit-scrollbar-thumb {
+  background: #D4955A;
+}
