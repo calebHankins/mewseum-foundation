@@ -219,5 +219,5 @@ For GitHub Pages, `vite.config.ts` must set `base: '/mewseum-foundation/'`. Do n
 - Do **not** add smooth subdivisions to geometry.
 - Do **not** store Three.js object references in React state — use `useRef`.
 - Do **not** call `findCat` more than once per cat — it is idempotent but the guard logic in `Cat.tsx` relies on `isCatFound` being false on the first pet only.
-- Sound must default to **off**. Never autoplay audio.
+- Sound defaults to **on**. Resume ambient audio on the first pointer or keyboard interaction if browser autoplay policy suspends it.
 - Do **not** push directly to `main`. Branch and PR for any non-trivial change.

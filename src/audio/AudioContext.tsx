@@ -8,8 +8,7 @@ interface AudioContextValue {
 const AudioCtx = createContext<AudioContextValue | null>(null)
 
 export function AudioProvider({ children }: { children: ReactNode }) {
-  // Default OFF — respects autoplay policy
-  const [audioEnabled, setAudioEnabled] = useState(false)
+  const [audioEnabled, setAudioEnabled] = useState(true)
 
   const toggleAudio = useCallback(() => {
     setAudioEnabled(v => !v)

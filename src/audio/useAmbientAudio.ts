@@ -113,7 +113,17 @@ export function useAmbientAudio(enabled: boolean): void {
 
     nodesRef.current = nodes
 
+    const resumeAudio = () => {
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume().catch(() => undefined)
+      }
+    }
+    window.addEventListener('pointerdown', resumeAudio)
+    window.addEventListener('keydown', resumeAudio)
+
     return () => {
+      window.removeEventListener('pointerdown', resumeAudio)
+      window.removeEventListener('keydown', resumeAudio)
       nodes.forEach(n => {
         try {
           if (n instanceof OscillatorNode || n instanceof AudioBufferSourceNode) {
