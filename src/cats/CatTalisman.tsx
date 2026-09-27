@@ -125,10 +125,20 @@ export default function CatTalisman({ position = [-1.5, 0, 12] }: CatTalismanPro
         <meshBasicMaterial color="#D4955A" />
       </mesh>
 
-      {/* ── Inner Pulse Glow ────────────────────────────────────── */}
-      <mesh>
-        <sphereGeometry args={[0.25, 16, 16]} />
+      {/* ── Cat-Eye Iris ────────────────────────────────────────── */}
+      <mesh position={[0, 0, -0.39]} scale={[0.12, 0.19, 0.025]}>
+        <sphereGeometry args={[1, 16, 12]} />
         <meshBasicMaterial color="#F4B460" />
+      </mesh>
+
+      {/* ── Cat-Eye Pupil ───────────────────────────────────────── */}
+      <mesh position={[0, 0, -0.422]} scale={[0.035, 0.14, 0.012]}>
+        <sphereGeometry args={[1, 12, 8]} />
+        <meshBasicMaterial color="#2A1712" />
+      </mesh>
+      <mesh position={[-0.045, 0.075, -0.425]}>
+        <sphereGeometry args={[0.018, 8, 6]} />
+        <meshBasicMaterial color="#FFF0C2" />
       </mesh>
 
       {/* ── Outer Radiance Ring (wireframe) ─────────────────────── */}
