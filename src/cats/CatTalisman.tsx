@@ -20,8 +20,10 @@ interface CatTalismanProps {
 
 export default function CatTalisman({ position = [-1.5, 0, 12] }: CatTalismanProps) {
   const groupRef = useRef<THREE.Group>(null)
+  const irisGroupRef = useRef<THREE.Group>(null)
   const outerRingRef = useRef<THREE.Mesh>(null)
   const innerRingRef = useRef<THREE.Mesh>(null)
+  const cameraLocalPosition = useRef(new THREE.Vector3())
   const pulseRef = useRef(0)
   const cooldownRef = useRef(0)
   const activationRef = useRef(0)
@@ -70,7 +72,7 @@ export default function CatTalisman({ position = [-1.5, 0, 12] }: CatTalismanPro
     }
   }, [findCat, getUnfoundCat])
 
-  useFrame((_, delta) => {
+  useFrame((state, delta) => {
     const group = groupRef.current
     if (!group) return
 
@@ -87,6 +89,24 @@ export default function CatTalisman({ position = [-1.5, 0, 12] }: CatTalismanPro
       outerRingRef.current.rotation.z += delta * 0.65
       innerRingRef.current.rotation.x -= delta * 0.75
       innerRingRef.current.rotation.z += delta * 1.1
+    }
+
+    const irisGroup = irisGroupRef.current
+    if (irisGroup) {
+      const cameraPosition = state.camera.getWorldPosition(cameraLocalPosition.current)
+      group.worldToLocal(cameraPosition)
+      const gazeX = THREE.MathUtils.clamp(
+        (cameraPosition.x / Math.max(Math.abs(cameraPosition.z), 0.5)) * 0.045,
+        -0.04,
+        0.04,
+      )
+      const gazeY = THREE.MathUtils.clamp(
+        (cameraPosition.y / Math.max(Math.abs(cameraPosition.z), 0.5)) * 0.035,
+        -0.03,
+        0.03,
+      )
+      irisGroup.position.x = gazeX + Math.sin(pulseRef.current * 14) * 0.0025
+      irisGroup.position.y = gazeY + Math.sin(pulseRef.current * 19 + 1) * 0.002
     }
 
     if (activationRef.current < ACTIVATION_DURATION) {
@@ -126,20 +146,22 @@ export default function CatTalisman({ position = [-1.5, 0, 12] }: CatTalismanPro
       </mesh>
 
       {/* ── Cat-Eye Iris ────────────────────────────────────────── */}
-      <mesh position={[0, 0, -0.39]} scale={[0.12, 0.19, 0.025]}>
-        <sphereGeometry args={[1, 16, 12]} />
-        <meshBasicMaterial color="#F4B460" />
-      </mesh>
+      <group ref={irisGroupRef}>
+        <mesh position={[0, 0, -0.39]} scale={[0.12, 0.19, 0.025]}>
+          <sphereGeometry args={[1, 16, 12]} />
+          <meshBasicMaterial color="#F4B460" />
+        </mesh>
 
-      {/* ── Cat-Eye Pupil ───────────────────────────────────────── */}
-      <mesh position={[0, 0, -0.422]} scale={[0.035, 0.14, 0.012]}>
-        <sphereGeometry args={[1, 12, 8]} />
-        <meshBasicMaterial color="#2A1712" />
-      </mesh>
-      <mesh position={[-0.045, 0.075, -0.425]}>
-        <sphereGeometry args={[0.018, 8, 6]} />
-        <meshBasicMaterial color="#FFF0C2" />
-      </mesh>
+        {/* ── Cat-Eye Pupil ─────────────────────────────────────── */}
+        <mesh position={[0, 0, -0.422]} scale={[0.035, 0.14, 0.012]}>
+          <sphereGeometry args={[1, 12, 8]} />
+          <meshBasicMaterial color="#2A1712" />
+        </mesh>
+        <mesh position={[-0.045, 0.075, -0.425]}>
+          <sphereGeometry args={[0.018, 8, 6]} />
+          <meshBasicMaterial color="#FFF0C2" />
+        </mesh>
+      </group>
 
       {/* ── Outer Radiance Ring (wireframe) ─────────────────────── */}
       <mesh ref={outerRingRef} rotation={[Math.PI / 2, 0, 0]}>
