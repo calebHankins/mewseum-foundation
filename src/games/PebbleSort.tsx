@@ -169,7 +169,9 @@ export default function PebbleSort({ onClose }: PebbleSortProps) {
     } else {
       const target = document.elementsFromPoint(event.clientX, event.clientY)
         .map(element => element.closest<HTMLElement>('[data-pebble-id]'))
-        .find((element): element is HTMLElement => element !== null)
+        .find((element): element is HTMLElement =>
+          element !== null && Number(element.dataset.pebbleId) !== pebble.id,
+        )
       const targetId = Number(target?.dataset.pebbleId)
       if (target && targetId !== pebble.id) {
         combinePebbles(pebble.id, targetId)
