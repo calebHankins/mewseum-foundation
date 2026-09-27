@@ -51,10 +51,15 @@ export default function HUD() {
         {audioEnabled ? '🔊' : '🔇'}
       </button>
 
+      {/* ── Reticle — centre ──────────────────────────────────────────── */}
+      {!showTutorial && (
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-sanctuary-dust/60 rounded-full pointer-events-none"></div>
+      )}
+
       {/* ── Controls hint — bottom centre ──────────────────────────────── */}
       {!showTutorial && (
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2">
-          <span className="font-pixel text-sanctuary-dust/50 text-xs">
+          <span className="font-pixel text-sanctuary-dust/50 text-xs shadow-black drop-shadow-md">
             {isDesktop ? 'Click to look · WASD to move · Click cats to pet' : 'Drag right to look · Drag left to move · Tap cats to pet'}
           </span>
         </div>

@@ -58,4 +58,13 @@ export const CAT_REGISTRY: CatDef[] = [
     color: '#E8E0D4',
     accentColor: '#302020',
   },
+  {
+    id: 'pingu',
+    name: 'Pingu',
+    description: 'A dapper tuxedo cat always dressed for the occasion.',
+    position: [0, 0, -2],
+    rotation: [0, -0.2, 0],
+    color: '#1a1a1a',
+    accentColor: '#ffffff',
+  },
 ]
