@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
+import { useAudioContext } from '../audio/AudioContext'
+import { playPebbleSound } from '../audio/pebbleSounds'
 
 interface PebbleSortProps {
   onClose: () => void
@@ -42,6 +44,7 @@ function shuffledPebbles(): Pebble[] {
 }
 
 export default function PebbleSort({ onClose }: PebbleSortProps) {
+  const { audioEnabled } = useAudioContext()
   const [pebbles, setPebbles] = useState(shuffledPebbles)
   const [sorted, setSorted] = useState<Pebble[]>([])
   const [selectedId, setSelectedId] = useState<number | null>(null)
@@ -53,6 +56,10 @@ export default function PebbleSort({ onClose }: PebbleSortProps) {
   const sortedCount = sorted.reduce((total, pebble) => total + pebble.count, 0)
   const complete = sortedCount === 16
 
+  function playSound(sound: Parameters<typeof playPebbleSound>[0]) {
+    if (audioEnabled) playPebbleSound(sound)
+  }
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose()
@@ -63,6 +70,7 @@ export default function PebbleSort({ onClose }: PebbleSortProps) {
 
   function sortInto(colorId: Pebble['color'], pebbleId: number | null) {
     if (pebbleId === null) {
+      playSound('error')
       setMessage('Pick up a pebble first.')
       return
     }
@@ -72,12 +80,14 @@ export default function PebbleSort({ onClose }: PebbleSortProps) {
     setMoves(current => current + 1)
 
     if (pebble.color !== colorId) {
+      playSound('error')
       const targetName = COLORS.find(color => color.id === pebble.color)?.name
       setMessage(`Not quite. That pebble belongs in the ${targetName} bowl.`)
       return
     }
 
     setPebbles(current => current.filter(item => item.id !== pebble.id))
+    playSound('sort')
     setSorted(current => [...current, pebble])
     setSelectedId(null)
     setMessage('A lovely fit. Keep going.')
@@ -102,6 +112,7 @@ export default function PebbleSort({ onClose }: PebbleSortProps) {
     const second = pebbles.find(item => item.id === secondId)
     if (!first || !second) return
     if (first.color !== second.color) {
+      playSound('error')
       setMessage('Only pebbles of the same colour can combine.')
       return
     }
@@ -111,6 +122,7 @@ export default function PebbleSort({ onClose }: PebbleSortProps) {
       if (item.id === secondId) return []
       return [item]
     }))
+    playSound('combine')
     setSelectedId(null)
     const colorName = COLORS.find(color => color.id === first.color)?.name
     setMessage(`Joined into a bundle! Drop it into the ${colorName} bowl.`)
@@ -172,7 +184,41 @@ export default function PebbleSort({ onClose }: PebbleSortProps) {
     setSorted([])
     setSelectedId(null)
     setMoves(0)
+    playSound('shuffle')
     setMessage('Choose a pebble, then find its colour bowl.')
+  }
+
+  function shuffleLoosePebbles() {
+    const loosePebbles = pebbles.filter(pebble => pebble.count === 1)
+    if (loosePebbles.length < 2) {
+      playSound('error')
+      setMessage('There are not enough loose pebbles to shuffle.')
+      return
+    }
+
+    if (!loosePebbles.some(pebble => pebble.color !== loosePebbles[0].color)) {
+      playSound('error')
+      setMessage('All loose pebbles are the same colour.')
+      return
+    }
+
+    setPebbles(current => {
+      const shuffledLoose = current.filter(pebble => pebble.count === 1)
+      for (let index = shuffledLoose.length - 1; index > 0; index--) {
+        const swapIndex = Math.floor(Math.random() * (index + 1))
+        ;[shuffledLoose[index], shuffledLoose[swapIndex]] = [shuffledLoose[swapIndex], shuffledLoose[index]]
+      }
+
+      if (shuffledLoose.every((pebble, index) => pebble.color === loosePebbles[index].color)) {
+        shuffledLoose.push(shuffledLoose.shift()!)
+      }
+
+      let looseIndex = 0
+      return current.map(pebble => pebble.count === 1 ? shuffledLoose[looseIndex++] : pebble)
+    })
+    playSound('shuffle')
+    setSelectedId(null)
+    setMessage('Loose pebbles shuffled. Look for new matching neighbours.')
   }
 
   return (
@@ -237,11 +283,13 @@ export default function PebbleSort({ onClose }: PebbleSortProps) {
                             if (arePebblesNearby(selectedId, pebble.id)) {
                               combinePebbles(selectedId, pebble.id)
                             } else {
+                              playSound('error')
                               setMessage('Matching pebbles need to be close together to combine.')
                             }
                             return
                           }
                         }
+                        playSound('select')
                         setSelectedId(current => current === pebble.id ? null : pebble.id)
                         setMessage(`Find the ${color.name} bowl.`)
                       }}
@@ -278,7 +326,7 @@ export default function PebbleSort({ onClose }: PebbleSortProps) {
             </div>
             <footer className="pebble-footer">
               <span>Combine nearby matching pebbles into bundles, then sort them into bowls.</span>
-              <button className="pebble-reset" onClick={reset} title="Shuffle pebbles">Shuffle</button>
+              <button className="pebble-reset" onClick={shuffleLoosePebbles} title="Redistribute loose pebbles">Shuffle</button>
             </footer>
           </>
         )}
