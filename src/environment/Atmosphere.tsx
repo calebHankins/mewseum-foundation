@@ -1,5 +1,5 @@
-import { useRef, useMemo } from 'react'
-import { useFrame } from '@react-three/fiber'
+import { useRef, useMemo, useEffect } from 'react'
+import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 
 const PARTICLE_COUNT = 180
@@ -81,6 +81,14 @@ function PixelDust() {
     }
   })
 
+  // Tighten the raycaster's Points threshold so clicks land on exactly the
+  // dot you see, not any particle within a 1-unit default cylinder.
+  const { raycaster } = useThree()
+  useEffect(() => {
+    raycaster.params.Points = raycaster.params.Points ?? {}
+    raycaster.params.Points.threshold = 0.12
+  }, [raycaster])
+
   return (
     <>
       <points
@@ -91,45 +99,52 @@ function PixelDust() {
           const idx = e.index
           if (active[idx] === 0) return
 
-          // Mark as inactive and move far away
-          active[idx] = 0
-
           const pts = pointsRef.current
-          if (pts) {
-            const pos = (pts.geometry.attributes.position as THREE.BufferAttribute).array as Float32Array
-            const x = pos[idx * 3]
-            const y = pos[idx * 3 + 1]
-            const z = pos[idx * 3 + 2]
+          const spts = smallPointsRef.current
+          if (!pts || !spts) return
 
-            // Move normal particle out of view so it doesn't render or interact
-            pos[idx * 3] = 9999
-            pos[idx * 3 + 1] = 9999
-            pos[idx * 3 + 2] = 9999
-            pts.geometry.attributes.position.needsUpdate = true
+          const spawnCount = 4
+          // Guard the cap before committing to anything
+          if (smallCountRef.current + spawnCount >= MAX_SMALL_PARTICLES) return
 
-            // Spawn smaller particles
-            const spawnCount = 4
-            const spts = smallPointsRef.current
-            if (spts && smallCountRef.current + spawnCount < MAX_SMALL_PARTICLES) {
-              const spos = (spts.geometry.attributes.position as THREE.BufferAttribute).array as Float32Array
-              const currentCount = smallCountRef.current
+          const pos = (pts.geometry.attributes.position as THREE.BufferAttribute).array as Float32Array
+          const x = pos[idx * 3]
+          const y = pos[idx * 3 + 1]
+          const z = pos[idx * 3 + 2]
 
-              for (let i = 0; i < spawnCount; i++) {
-                const sidx = currentCount + i
-                spos[sidx * 3] = x + (Math.random() - 0.5) * 0.1
-                spos[sidx * 3 + 1] = y + (Math.random() - 0.5) * 0.1
-                spos[sidx * 3 + 2] = z + (Math.random() - 0.5) * 0.1
+          // Sanity-check: the clicked particle should be reasonably close to
+          // the ray intersection point reported by R3F. If it's too far away
+          // it means the raycaster picked a different particle than the one
+          // the user aimed at — bail out without destroying anything.
+          const dx = x - e.point.x
+          const dy = y - e.point.y
+          const dz = z - e.point.z
+          if (dx * dx + dy * dy + dz * dz > 0.5) return
 
-                smallVelocities[sidx * 3] = (Math.random() - 0.5) * 0.02
-                smallVelocities[sidx * 3 + 1] = (Math.random() - 0.5) * 0.02
-                smallVelocities[sidx * 3 + 2] = (Math.random() - 0.5) * 0.02
-              }
+          // Everything looks good — spawn first, then hide the parent
+          const spos = (spts.geometry.attributes.position as THREE.BufferAttribute).array as Float32Array
+          const currentCount = smallCountRef.current
 
-              smallCountRef.current += spawnCount
-              spts.geometry.setDrawRange(0, smallCountRef.current)
-              spts.geometry.attributes.position.needsUpdate = true
-            }
+          for (let i = 0; i < spawnCount; i++) {
+            const sidx = currentCount + i
+            spos[sidx * 3] = x + (Math.random() - 0.5) * 0.1
+            spos[sidx * 3 + 1] = y + (Math.random() - 0.5) * 0.1
+            spos[sidx * 3 + 2] = z + (Math.random() - 0.5) * 0.1
+            smallVelocities[sidx * 3] = (Math.random() - 0.5) * 0.02
+            smallVelocities[sidx * 3 + 1] = (Math.random() - 0.5) * 0.02
+            smallVelocities[sidx * 3 + 2] = (Math.random() - 0.5) * 0.02
           }
+
+          smallCountRef.current += spawnCount
+          spts.geometry.setDrawRange(0, smallCountRef.current)
+          spts.geometry.attributes.position.needsUpdate = true
+
+          // Only now hide the parent mote
+          active[idx] = 0
+          pos[idx * 3] = 9999
+          pos[idx * 3 + 1] = 9999
+          pos[idx * 3 + 2] = 9999
+          pts.geometry.attributes.position.needsUpdate = true
         }}
       >
         <bufferGeometry>
