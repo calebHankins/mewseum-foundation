@@ -13,6 +13,8 @@ const COLORS = [
   { id: 'moss', name: 'Moss', hex: '#849151', light: '#bcc58a' },
   { id: 'honey', name: 'Honey', hex: '#d39a4e', light: '#f0c477' },
 ] as const
+const PEBBLES_PER_COLOR = 6
+const TOTAL_PEBBLES = COLORS.length * PEBBLES_PER_COLOR
 
 interface Pebble {
   id: number
@@ -29,8 +31,8 @@ interface PebbleGesture {
 
 function shuffledPebbles(): Pebble[] {
   const pebbles = COLORS.flatMap(color =>
-    Array.from({ length: 4 }, (_, index) => ({
-      id: COLORS.indexOf(color) * 4 + index,
+    Array.from({ length: PEBBLES_PER_COLOR }, (_, index) => ({
+      id: COLORS.indexOf(color) * PEBBLES_PER_COLOR + index,
       color: color.id,
       count: 1,
     })),
@@ -54,7 +56,7 @@ export default function PebbleSort({ onClose }: PebbleSortProps) {
   const gestureRef = useRef<PebbleGesture | null>(null)
   const suppressClickRef = useRef<number | null>(null)
   const sortedCount = sorted.reduce((total, pebble) => total + pebble.count, 0)
-  const complete = sortedCount === 16
+  const complete = sortedCount === TOTAL_PEBBLES
 
   function playSound(sound: Parameters<typeof playPebbleSound>[0]) {
     if (audioEnabled) playPebbleSound(sound)
@@ -238,7 +240,7 @@ export default function PebbleSort({ onClose }: PebbleSortProps) {
 
         <div className="pebble-status" aria-live="polite">
           <span>{complete ? 'All gathered' : message}</span>
-          <span className="pebble-progress">{sortedCount} <i>/</i> 16 <b>·</b> {moves} moves</span>
+          <span className="pebble-progress">{sortedCount} <i>/</i> {TOTAL_PEBBLES} <b>·</b> {moves} moves</span>
         </div>
 
         {complete ? (
@@ -314,13 +316,13 @@ export default function PebbleSort({ onClose }: PebbleSortProps) {
                       data-pebble-bowl={color.id}
                       style={{ '--bowl-color': color.hex, '--bowl-light': color.light } as React.CSSProperties}
                       onClick={() => sortInto(color.id, selectedId)}
-                      aria-label={`${color.name} bowl, ${count} of 4 pebbles`}
+                      aria-label={`${color.name} bowl, ${count} of ${PEBBLES_PER_COLOR} pebbles`}
                     >
                       <span className="pebble-bowl-name">{color.name}</span>
                       <span className="pebble-bowl-stones" aria-hidden="true">
                         {Array.from({ length: count }, (_, index) => <i key={index} />)}
                       </span>
-                      <span className="pebble-bowl-count">{count} / 4</span>
+                      <span className="pebble-bowl-count">{count} / {PEBBLES_PER_COLOR}</span>
                     </button>
                   )
                 })}
