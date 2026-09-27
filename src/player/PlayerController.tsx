@@ -17,6 +17,11 @@ const TOUCH_LOOK_SENS = 0.006
 const PLAYER_HEIGHT = 1.65
 const BOUNDS = { x: 8.5, z: 10.5 }  // half-extents, keeps player in room
 
+// Physics constants for jumping
+const GRAVITY = 15.0
+const JUMP_FORCE = 6.5
+const GROUND_Y = PLAYER_HEIGHT
+
 type Keys = Record<string, boolean>
 
 export default function PlayerController() {
@@ -25,6 +30,8 @@ export default function PlayerController() {
   const yaw = useRef(0)   // horizontal look angle
   const pitch = useRef(0)   // vertical look angle (clamped)
   const isLocked = useRef(false)
+  const velY = useRef(0)   // vertical velocity for jumping/gravity
+  const isGrounded = useRef(true)
 
   // Touch state
   const moveTouch = useRef<{ id: number; sx: number; sy: number } | null>(null)
@@ -43,6 +50,13 @@ export default function PlayerController() {
     gl.domElement.requestPointerLock()
   }, [gl])
 
+  const handleJump = useCallback(() => {
+    if (isGrounded.current) {
+      velY.current = JUMP_FORCE
+      isGrounded.current = false
+    }
+  }, [])
+
   useEffect(() => {
     const canvas = gl.domElement
 
@@ -55,7 +69,10 @@ export default function PlayerController() {
       pitch.current -= e.movementY * LOOK_SENS
       pitch.current = Math.max(-Math.PI / 2.2, Math.min(Math.PI / 2.2, pitch.current))
     }
-    const onKeyDown = (e: KeyboardEvent) => { keys.current[e.code] = true }
+    const onKeyDown = (e: KeyboardEvent) => {
+      keys.current[e.code] = true
+      if (e.code === 'Space' || e.code === 'KeyR') handleJump()
+    }
     const onKeyUp = (e: KeyboardEvent) => { keys.current[e.code] = false }
 
     document.addEventListener('pointerlockchange', onLockChange)
@@ -71,7 +88,7 @@ export default function PlayerController() {
       window.removeEventListener('keyup', onKeyUp)
       canvas.removeEventListener('click', requestLock)
     }
-  }, [gl, requestLock])
+  }, [gl, requestLock, handleJump])
 
   // ── Touch controls (mobile) ──────────────────────────────────────────────
   useEffect(() => {
@@ -166,15 +183,28 @@ export default function PlayerController() {
       vel.current.addScaledVector(right.current, td.dx / 60)
     }
 
+    // Apply horizontal movement
     if (vel.current.lengthSq() > 0) {
       vel.current.normalize()
       camera.position.addScaledVector(vel.current, MOVE_SPEED * delta)
-
-      // Clamp to room bounds
-      camera.position.x = Math.max(-BOUNDS.x, Math.min(BOUNDS.x, camera.position.x))
-      camera.position.z = Math.max(-BOUNDS.z, Math.min(BOUNDS.z, camera.position.z))
-      camera.position.y = PLAYER_HEIGHT
     }
+
+    // Apply gravity and vertical movement
+    camera.position.y += velY.current * delta
+    velY.current -= GRAVITY * delta
+
+    // Ground collision
+    if (camera.position.y <= GROUND_Y) {
+      camera.position.y = GROUND_Y
+      velY.current = 0
+      isGrounded.current = true
+    } else {
+      isGrounded.current = false
+    }
+
+    // Clamp to room bounds
+    camera.position.x = Math.max(-BOUNDS.x, Math.min(BOUNDS.x, camera.position.x))
+    camera.position.z = Math.max(-BOUNDS.z, Math.min(BOUNDS.z, camera.position.z))
   })
 
   return null
