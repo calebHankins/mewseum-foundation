@@ -118,6 +118,8 @@ Never enable anti-aliasing or increase `dpr` — both break the aesthetic.
 
 When the Pointer Lock API has the cursor, `centeredEvents` in `Scene.tsx` forces the R3F raycaster through NDC (0, 0) — matching the HUD crosshair. This is required for correct cat/frame interaction while pointer-locked. Do not replace `centeredEvents` with R3F's default events.
 
+On desktop, the first canvas click only acquires pointer lock; filter R3F intersections while unlocked so it cannot also activate the object under the old cursor position. Once locked, interactions use the centered reticle. Keep unlocked pointer interactions enabled for touch devices.
+
 ---
 
 ## Key Data Files
