@@ -4,36 +4,10 @@ import * as THREE from 'three'
 import SanctuaryRoom from './environment/SanctuaryRoom'
 import Atmosphere from './environment/Atmosphere'
 import CatRegistry from './cats/CatRegistry'
+import CatTalisman from './cats/CatTalisman'
 import FrameRegistry from './frames/FrameRegistry'
 import PlayerController from './player/PlayerController'
 import PS1Pipeline from './shaders/PS1Pipeline'
-import { useCatProgress } from './progression/CatProgressContext'
-
-// ─────────────────────────────────────────────────────────────────────────────
-// DebugCatUnlocker
-// Temporary dev helper — press 'F' to mark the cat nearest to origin as found.
-// Remove before shipping.
-// ─────────────────────────────────────────────────────────────────────────────
-import { useEffect } from 'react'
-import { CAT_REGISTRY } from './cats/catData'
-
-function DebugCatUnlocker() {
-  const { findCat, foundCount } = useCatProgress()
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.code === 'KeyF') {
-        const unfound = CAT_REGISTRY.find(c => !localStorage.getItem('mewseum_found_cats')?.includes(c.id))
-        if (unfound) {
-          findCat(unfound.id)
-          console.log(`[Mewseum] Found cat: ${unfound.name}`)
-        }
-      }
-    }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [findCat, foundCount])
-  return null
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SceneLights — ambient + directional warm lighting
@@ -103,14 +77,14 @@ export default function Scene() {
         {/* Inhabitants */}
         <CatRegistry />
 
+        {/* Sanctuary offering for finding stray cats */}
+        <CatTalisman />
+
         {/* Game exhibits */}
         <FrameRegistry />
 
         {/* PS1 post-processing — dither + colour banding */}
         <PS1Pipeline />
-
-        {/* Dev helper */}
-        <DebugCatUnlocker />
       </Suspense>
     </Canvas>
   )
