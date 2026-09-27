@@ -77,7 +77,11 @@ function SceneLights() {
 // ─────────────────────────────────────────────────────────────────────────────
 // Scene — root R3F Canvas
 // ─────────────────────────────────────────────────────────────────────────────
-export default function Scene() {
+interface SceneProps {
+  onOpenPebbleSort: () => void
+}
+
+export default function Scene({ onOpenPebbleSort }: SceneProps) {
   return (
     <Canvas
       // PS1: no anti-aliasing, locked pixel ratio
@@ -114,7 +118,7 @@ export default function Scene() {
         <CatTalisman position={[-1.5, 0, 10]} />
 
         {/* Game exhibits */}
-        <FrameRegistry />
+        <FrameRegistry onOpenPebbleSort={onOpenPebbleSort} />
 
         {/* PS1 post-processing — dither + colour banding */}
         <PS1Pipeline />

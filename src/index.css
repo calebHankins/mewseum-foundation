@@ -31,3 +31,243 @@ img, canvas {
 ::-webkit-scrollbar-thumb {
   background: #D4955A;
 }
+
+.pebble-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgb(18 18 15 / 78%);
+  backdrop-filter: blur(3px);
+  pointer-events: auto;
+  user-select: none;
+}
+
+.pebble-game {
+  width: min(760px, 100%);
+  max-height: min(760px, 100%);
+  overflow: auto;
+  padding: clamp(20px, 4vw, 38px);
+  color: #342b22;
+  background-color: #d7c7a1;
+  background-image: radial-gradient(#96866a 0.7px, transparent 0.7px), linear-gradient(135deg, #e5d8b7, #c8b894);
+  background-size: 7px 7px, 100% 100%;
+  border: 4px solid #765c40;
+  box-shadow: 0 12px 0 #261b13, 0 24px 70px #0009;
+  font-family: Georgia, 'Times New Roman', serif;
+  animation: pebble-arrive 220ms ease-out both;
+}
+
+.pebble-header,
+.pebble-status,
+.pebble-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.pebble-header {
+  padding-bottom: 18px;
+  border-bottom: 1px solid #806c50;
+}
+
+.pebble-kicker {
+  margin-bottom: 7px;
+  color: #71593c;
+  font: 11px/1.4 'Courier New', monospace;
+  text-transform: uppercase;
+}
+
+.pebble-header h1 {
+  font-size: clamp(24px, 5vw, 38px);
+  line-height: 1.1;
+  font-weight: 600;
+}
+
+.pebble-icon-button,
+.pebble-reset {
+  border: 1px solid #765c40;
+  color: #342b22;
+  background: #e9ddc1;
+  cursor: pointer;
+}
+
+.pebble-icon-button {
+  width: 40px;
+  height: 40px;
+  font: 30px/1 Georgia, serif;
+}
+
+.pebble-status {
+  min-height: 52px;
+  color: #54422e;
+  font-size: 14px;
+}
+
+.pebble-progress {
+  flex: 0 0 auto;
+  color: #685337;
+  font: 12px 'Courier New', monospace;
+}
+
+.pebble-progress i { padding: 0 3px; font-style: normal; }
+.pebble-progress b { padding: 0 5px; color: #a16c3e; }
+
+.pebble-workspace {
+  padding: 18px;
+  background: #ad9d7a;
+  border: 1px solid #897654;
+  box-shadow: inset 0 2px 4px #493a283d;
+}
+
+.pebble-tray {
+  min-height: 185px;
+  display: flex;
+  align-content: center;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 20px 10px;
+  background-color: #bfb28f;
+  background-image: radial-gradient(#8f8063 0.6px, transparent 0.6px);
+  background-size: 8px 8px;
+  border: 2px solid #8d7b5c;
+  box-shadow: inset 0 4px 8px #56462b33;
+}
+
+.pebble-stone {
+  width: 57px;
+  height: 43px;
+  flex: 0 0 57px;
+  border: 0;
+  border-radius: 46% 54% 52% 48% / 58% 45% 55% 42%;
+  background: radial-gradient(ellipse at 32% 25%, var(--stone-light), var(--stone-color) 62%, #554a3d);
+  box-shadow: inset -5px -5px 0 #30271b38, 2px 4px 2px #4538215c;
+  cursor: pointer;
+  touch-action: none;
+  transform: rotate(calc((var(--stone-index) - 7) * 3deg));
+  transition: transform 130ms ease, box-shadow 130ms ease;
+}
+
+.pebble-stone:hover { transform: translateY(-4px) rotate(0); }
+.pebble-stone.is-selected {
+  transform: translateY(-8px) rotate(0) scale(1.08);
+  outline: 2px solid #fff4d7;
+  outline-offset: 3px;
+  box-shadow: 0 7px 0 #45382166, inset -5px -5px 0 #30271b38;
+}
+
+.pebble-stone.is-dragging {
+  position: relative;
+  z-index: 2;
+  transform: translate(var(--drag-x), var(--drag-y)) scale(1.12);
+  transition: none;
+  cursor: grabbing;
+}
+
+.pebble-tray-empty {
+  color: #65563e;
+  font: 13px 'Courier New', monospace;
+}
+
+.pebble-bowls {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.pebble-bowl {
+  min-width: 0;
+  min-height: 124px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 7px 10px;
+  color: #352c22;
+  background: linear-gradient(#8b7555 0 12%, #705c43 12% 20%, #a38b63 20% 100%);
+  border: 2px solid #69533a;
+  border-radius: 8px 8px 24px 24px;
+  box-shadow: inset 0 3px 0 #d4bb8c99, 0 4px 0 #63513b;
+  cursor: pointer;
+  transition: transform 120ms ease, filter 120ms ease;
+}
+
+.pebble-bowl:hover { transform: translateY(-3px); filter: brightness(1.08); }
+.pebble-bowl-name { font: 12px 'Courier New', monospace; }
+
+.pebble-bowl-stones {
+  min-height: 27px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.pebble-bowl-stones i {
+  width: 15px;
+  height: 11px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at 30% 25%, var(--bowl-light), var(--bowl-color) 70%, #514638);
+  box-shadow: inset -2px -2px 0 #30271b44;
+}
+
+.pebble-bowl-count { color: #f0e2c5; font: 10px 'Courier New', monospace; }
+
+.pebble-footer {
+  padding-top: 20px;
+  color: #645238;
+  font: 12px 'Courier New', monospace;
+}
+
+.pebble-reset,
+.pebble-action {
+  min-height: 38px;
+  padding: 0 14px;
+  font: 12px 'Courier New', monospace;
+}
+
+.pebble-action {
+  border: 1px solid #684a2e;
+  color: #f0e2c5;
+  background: #765638;
+  cursor: pointer;
+}
+
+.pebble-complete {
+  min-height: 350px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  text-align: center;
+}
+
+.pebble-complete-stones { color: #a66f47; font-size: 28px; letter-spacing: 8px; }
+.pebble-complete h2 { max-width: 440px; font-size: clamp(20px, 4vw, 30px); font-weight: 500; }
+.pebble-complete p { color: #645238; }
+
+@keyframes pebble-arrive {
+  from { opacity: 0; transform: translateY(8px) scale(.99); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (max-width: 520px) {
+  .pebble-overlay { padding: 10px; }
+  .pebble-game { padding: 18px 14px; border-width: 3px; }
+  .pebble-status { align-items: flex-start; flex-direction: column; justify-content: center; gap: 4px; }
+  .pebble-workspace { padding: 10px; }
+  .pebble-tray { min-height: 155px; gap: 8px; padding: 15px 5px; }
+  .pebble-stone { width: 48px; height: 37px; flex-basis: 48px; }
+  .pebble-bowls { gap: 7px; margin-top: 12px; }
+  .pebble-bowl { min-height: 108px; padding: 10px 3px 8px; }
+  .pebble-bowl-name { font-size: 10px; }
+  .pebble-footer { align-items: flex-start; font-size: 10px; }
+}

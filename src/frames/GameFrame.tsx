@@ -5,6 +5,7 @@ import type { FrameDef } from './frameData'
 
 interface GameFrameProps {
   def: FrameDef
+  onOpenPebbleSort: () => void
 }
 
 /**
@@ -12,13 +13,18 @@ interface GameFrameProps {
  * Displays the game title + description on a low-poly frame.
  * Clicking/tapping opens the game URL in a new tab.
  */
-export default function GameFrame({ def }: GameFrameProps) {
+export default function GameFrame({ def, onOpenPebbleSort }: GameFrameProps) {
   const groupRef = useRef<THREE.Group>(null)
   const [hovered, setHovered] = useState(false)
 
   const handleClick = useCallback(() => {
-    window.open(def.url, '_blank', 'noopener,noreferrer')
-  }, [def.url])
+    if (def.id === 'pebbles') {
+      document.exitPointerLock?.()
+      onOpenPebbleSort()
+    } else if (def.url) {
+      window.open(def.url, '_blank', 'noopener,noreferrer')
+    }
+  }, [def.id, def.url, onOpenPebbleSort])
 
   const accent = new THREE.Color(def.accentColor)
   const frameColor = hovered

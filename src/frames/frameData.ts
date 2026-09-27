@@ -2,7 +2,7 @@ export interface FrameDef {
   id: string
   title: string
   description: string
-  url: string
+  url?: string
   position: [number, number, number]
   rotation: [number, number, number]
   accentColor: string
@@ -54,7 +54,6 @@ export const FRAME_DATA: FrameDef[] = [
     id: 'pebbles',
     title: 'Pebble Sort',
     description: 'Sort smooth pebbles by colour.',
-    url: 'https://example.com/games/pebbles',
     position: [9.9, 2.2, 4],
     rotation: [0, -Math.PI / 2, 0],
     accentColor: '#9A8A7A',
