@@ -31,7 +31,13 @@ function centeredEvents(store: Parameters<typeof createPointerEvents>[0]) {
       baseFn(event, state, previous)
     }
   }
-  return { ...base, compute }
+  const filter = (intersections: THREE.Intersection[]) => {
+    // On desktop, the first canvas click only captures the pointer; it should not
+    // also activate an object under the pre-lock cursor position.
+    if (!document.pointerLockElement && window.matchMedia('(pointer: fine)').matches) return []
+    return intersections
+  }
+  return { ...base, compute, filter }
 }
 
 

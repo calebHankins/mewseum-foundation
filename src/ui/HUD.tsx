@@ -17,12 +17,48 @@ export default function HUD() {
   const { audioEnabled, toggleAudio } = useAudioContext()
   const [showTutorial, setShowTutorial] = useState(isFirstVisit)
   const [isDesktop, setIsDesktop] = useState(true)
+  const [reticlePosition, setReticlePosition] = useState(() => ({
+    x: window.innerWidth / 2,
+    y: window.innerHeight / 2,
+  }))
 
   // Drive ambient audio from context state
   useAmbientAudio(audioEnabled)
 
   useEffect(() => {
     setIsDesktop(window.matchMedia('(pointer: fine)').matches)
+  }, [])
+
+  useEffect(() => {
+    const pointerPosition = { x: window.innerWidth / 2, y: window.innerHeight / 2 }
+    const updatePointerPosition = (event: PointerEvent) => {
+      pointerPosition.x = event.clientX
+      pointerPosition.y = event.clientY
+      if (!document.pointerLockElement) {
+        setReticlePosition({ ...pointerPosition })
+      }
+    }
+    const updateLockPosition = () => {
+      setReticlePosition(document.pointerLockElement
+        ? { x: window.innerWidth / 2, y: window.innerHeight / 2 }
+        : { ...pointerPosition })
+    }
+    const updateCenter = () => {
+      if (document.pointerLockElement) {
+        setReticlePosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 })
+      }
+    }
+
+    window.addEventListener('pointermove', updatePointerPosition)
+    window.addEventListener('pointerdown', updatePointerPosition)
+    window.addEventListener('resize', updateCenter)
+    document.addEventListener('pointerlockchange', updateLockPosition)
+    return () => {
+      window.removeEventListener('pointermove', updatePointerPosition)
+      window.removeEventListener('pointerdown', updatePointerPosition)
+      window.removeEventListener('resize', updateCenter)
+      document.removeEventListener('pointerlockchange', updateLockPosition)
+    }
   }, [])
 
   function dismissTutorial() {
@@ -53,7 +89,10 @@ export default function HUD() {
 
       {/* ── Reticle — centre ──────────────────────────────────────────── */}
       {!showTutorial && (
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-sanctuary-dust/60 rounded-full pointer-events-none"></div>
+        <div
+          className="absolute -translate-x-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-sanctuary-dust/60 rounded-full pointer-events-none"
+          style={{ left: reticlePosition.x, top: reticlePosition.y }}
+        />
       )}
 
       {/* ── Controls hint — bottom centre ──────────────────────────────── */}
