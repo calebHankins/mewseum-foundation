@@ -6,6 +6,9 @@ import { useCatProgress } from '../progression/CatProgressContext'
 import type { CatDef } from './catData'
 import { CAT_REGISTRY } from './catData'
 
+const TALISMAN_COOLDOWN = 3
+const ACTIVATION_DURATION = 0.8
+
 // ─────────────────────────────────────────────────────────────────────────────
 // CatTalisman — A glowing sanctuary object that helps players find stray cats
 // Players can interact with it to "revel" an unfound cat from the mist
@@ -17,8 +20,13 @@ interface CatTalismanProps {
 
 export default function CatTalisman({ position = [-1.5, 0, 12] }: CatTalismanProps) {
   const groupRef = useRef<THREE.Group>(null)
+  const outerRingRef = useRef<THREE.Mesh>(null)
+  const innerRingRef = useRef<THREE.Mesh>(null)
   const pulseRef = useRef(0)
+  const cooldownRef = useRef(0)
+  const activationRef = useRef(0)
   const [hovered, setHovered] = useState(false)
+  const [isCoolingDown, setIsCoolingDown] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [messageTimer, setMessageTimer] = useState(0)
 
@@ -42,9 +50,14 @@ export default function CatTalisman({ position = [-1.5, 0, 12] }: CatTalismanPro
   }, [foundCats])
 
   const handleInteract = useCallback(() => {
+    if (cooldownRef.current > 0) return
+
     const unfoundCat = getUnfoundCat()
     if (unfoundCat) {
       findCat(unfoundCat.id)
+      cooldownRef.current = TALISMAN_COOLDOWN
+      activationRef.current = 0
+      setIsCoolingDown(true)
       setMessage(`Found ${unfoundCat.name}!`)
       setMessageTimer(0)
       console.log(`[CatTalisman] Found cat: ${unfoundCat.name}`)
@@ -66,6 +79,26 @@ export default function CatTalisman({ position = [-1.5, 0, 12] }: CatTalismanPro
 
     // Slow rotation
     group.rotation.y += delta * 0.1
+
+    if (outerRingRef.current && innerRingRef.current) {
+      outerRingRef.current.rotation.x += delta * 0.9
+      outerRingRef.current.rotation.z += delta * 0.65
+      innerRingRef.current.rotation.x -= delta * 0.75
+      innerRingRef.current.rotation.z += delta * 1.1
+    }
+
+    if (activationRef.current < ACTIVATION_DURATION) {
+      activationRef.current += delta
+      const progress = Math.min(activationRef.current / ACTIVATION_DURATION, 1)
+      group.scale.setScalar(1 + Math.sin(progress * Math.PI) * 0.2)
+    } else {
+      group.scale.setScalar(1)
+    }
+
+    if (cooldownRef.current > 0) {
+      cooldownRef.current = Math.max(0, cooldownRef.current - delta)
+      if (cooldownRef.current === 0) setIsCoolingDown(false)
+    }
 
     // Message countdown
     if (messageTimer > 0) {
@@ -98,13 +131,13 @@ export default function CatTalisman({ position = [-1.5, 0, 12] }: CatTalismanPro
       </mesh>
 
       {/* ── Outer Radiance Ring (wireframe) ─────────────────────── */}
-      <mesh rotation={[Math.PI / 2, 0, 0]}>
+      <mesh ref={outerRingRef} rotation={[Math.PI / 2, 0, 0]}>
         <torusGeometry args={[0.7, 0.02, 8, 24]} />
         <meshBasicMaterial color="#D4955A" transparent opacity={0.6} />
       </mesh>
 
       {/* ── Second Radiance Ring ────────────────────────────────── */}
-      <mesh rotation={[Math.PI / 2, 0, 0]} scale={[1.3, 1.3, 1.3]}>
+      <mesh ref={innerRingRef} rotation={[Math.PI / 2, 0, 0]} scale={[1.3, 1.3, 1.3]}>
         <torusGeometry args={[0.7, 0.01, 6, 16]} />
         <meshBasicMaterial color="#B88050" transparent opacity={0.4} />
       </mesh>
@@ -126,7 +159,7 @@ export default function CatTalisman({ position = [-1.5, 0, 12] }: CatTalismanPro
             outlineWidth={0.01}
             outlineColor="#1A1410"
           >
-            Find a stray cat
+            {isCoolingDown ? 'The talisman is resting' : 'Find a stray cat'}
           </Text>
         </Billboard>
       )}
