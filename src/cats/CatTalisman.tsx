@@ -31,9 +31,9 @@ export default function CatTalisman({ position = [-1.5, 0, 12] }: CatTalismanPro
   const pulseRef = useRef(0)
   const cooldownRef = useRef(0)
   const activationRef = useRef(0)
+  const messageTimerRef = useRef(0)
   const [hovered, setHovered] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
-  const [messageTimer, setMessageTimer] = useState(0)
 
   // Store initial position in a ref to preserve x/z during y animation
   const initialPos = useRef<THREE.Vector3>(new THREE.Vector3(position[0], position[1], position[2]))
@@ -57,7 +57,7 @@ export default function CatTalisman({ position = [-1.5, 0, 12] }: CatTalismanPro
   const handleInteract = useCallback(() => {
     if (cooldownRef.current > 0) {
       setMessage('The talisman is resting')
-      setMessageTimer(0)
+      messageTimerRef.current = Math.min(1.5, cooldownRef.current)
       return
     }
 
@@ -67,11 +67,11 @@ export default function CatTalisman({ position = [-1.5, 0, 12] }: CatTalismanPro
       cooldownRef.current = TALISMAN_COOLDOWN
       activationRef.current = 0
       setMessage(`Found ${unfoundCat.name}!`)
-      setMessageTimer(0)
+      messageTimerRef.current = 3
       console.log(`[CatTalisman] Found cat: ${unfoundCat.name}`)
     } else {
       setMessage('All cats have been found!')
-      setMessageTimer(0)
+      messageTimerRef.current = 3
       console.log('[CatTalisman] All cats found')
     }
   }, [findCat, getUnfoundCat])
@@ -126,13 +126,9 @@ export default function CatTalisman({ position = [-1.5, 0, 12] }: CatTalismanPro
       cooldownRef.current = Math.max(0, cooldownRef.current - delta)
     }
 
-    // Message countdown
-    if (messageTimer > 0) {
-      setMessageTimer(prev => {
-        const next = prev + delta
-        if (next >= 3) setMessage(null)
-        return next
-      })
+    if (messageTimerRef.current > 0) {
+      messageTimerRef.current = Math.max(0, messageTimerRef.current - delta)
+      if (messageTimerRef.current === 0) setMessage(null)
     }
   })
 
