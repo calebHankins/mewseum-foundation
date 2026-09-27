@@ -58,6 +58,8 @@ export default function Cat({ def }: CatProps) {
   const [targetPos, setTargetPos] = useState<THREE.Vector3 | null>(null)
   const [socialTarget, setSocialTarget] = useState<string | null>(null)
   const [cooldownTimer, setCooldownTimer] = useState(0)
+  const [interactionTimer, setInteractionTimer] = useState(0)
+  const [showFriendHeart, setShowFriendHeart] = useState(false)
 
   // Current position state (needed for movement since def.position is immutable)
   const [catPosition, setCatPosition] = useState<THREE.Vector3>(() => {
@@ -69,8 +71,10 @@ export default function Cat({ def }: CatProps) {
   const idlePhaseRef = useRef(Math.random() * Math.PI * 2)
   const wanderTimerRef = useRef(0)
 
-  // Get all cat positions for social interaction (outside useFrame to avoid recreating)
-  const catPositions = useRef(CAT_REGISTRY.map(c => ({ id: c.id, position: new THREE.Vector3(...c.position) }))).current
+  // Shared ref for all cats to track each other's positions
+  // Each cat updates its own position and checks others
+  const sharedCatPositionsRef = useRef<Record<string, THREE.Vector3>>({})
+  const ownCatId = def.id
 
   // Log when behavior starts (only once per cat)
   useEffect(() => {
@@ -120,13 +124,20 @@ export default function Cat({ def }: CatProps) {
       })
     }
 
-    // Heart countdown
+    // Update shared position registry for social interactions
+    sharedCatPositionsRef.current[ownCatId] = group.position.clone()
+
+      // Heart countdown
     if (showHeart) {
       setHeartTimer(prev => {
         const next = prev + delta
         if (next >= HEART_DURATION) setShowHeart(false)
         return next
       })
+    }
+    // Reset friend heart when not showing
+    if (!showFriendHeart && interactionTimer > 0) {
+      setInteractionTimer(0)
     }
 
     // ── Wandering and Social Behavior ─────────────────────────────
@@ -164,17 +175,18 @@ export default function Cat({ def }: CatProps) {
       } else if (catState === 'WANDER') {
         // Wander for a duration, then possibly socialize
         if (wanderTimerRef.current >= WANDER_CHANGE_DIR) {
-          // Check for nearby found cats (using group.position which reflects current state)
-          const nearbyCat = catPositions.find(
-            c => c.id !== def.id && c.position.distanceTo(group.position) < SOCIAL_RADIUS && isCatFound(c.id)
+          // Check for nearby found cats using shared position registry
+          const nearbyCat = Object.entries(sharedCatPositionsRef.current).find(
+            ([id, pos]) => id !== ownCatId && pos.distanceTo(group.position) < SOCIAL_RADIUS && isCatFound(id)
           )
           
           if (nearbyCat && Math.random() < 0.35) {
             // Find a social target
-            const socialCat = CAT_REGISTRY.find(c => c.id === nearbyCat.id)
+            const socialCat = CAT_REGISTRY.find(c => c.id === nearbyCat[0])
             if (socialCat) {
-              setSocialTarget(nearbyCat.id)
-              setTargetPos(nearbyCat.position.clone().add(new THREE.Vector3((Math.random() - 0.5) * 1.5, 0, (Math.random() - 0.5) * 1.5)))
+              setSocialTarget(nearbyCat[0])
+              const socialPos = sharedCatPositionsRef.current[nearbyCat[0]]
+              setTargetPos(socialPos.clone().add(new THREE.Vector3((Math.random() - 0.5) * 1.5, 0, (Math.random() - 0.5) * 1.5)))
               setCatState('SOCIAL')
               wanderTimerRef.current = 0
               console.log(`[Cat ${def.name}] Approaching social partner`)
@@ -227,7 +239,7 @@ export default function Cat({ def }: CatProps) {
       } else if (catState === 'SOCIAL') {
         // Move toward social target
         if (socialTarget && targetPos) {
-          const targetCat = catPositions.find(c => c.id === socialTarget)
+          const targetCat = sharedCatPositionsRef.current[socialTarget]
           if (targetCat) {
             const direction = new THREE.Vector3().subVectors(targetPos, group.position)
             const distance = direction.length()
@@ -250,13 +262,26 @@ export default function Cat({ def }: CatProps) {
               setCatPosition(new THREE.Vector3(group.position.x, group.position.y, group.position.z))
             } else {
               // Reached social partner - interact briefly
-              if (wanderTimerRef.current >= SOCIAL_INTERACTION) {
-                setCatState('IDLE')
-                setSocialTarget(null)
-                wanderTimerRef.current = 0
-                setTargetPos(null)
-                console.log(`[Cat ${def.name}] Social interaction complete`)
-              }
+              setInteractionTimer(prev => {
+                const next = prev + delta
+                if (next >= SOCIAL_INTERACTION) {
+                  setCatState('IDLE')
+                  setSocialTarget(null)
+                  wanderTimerRef.current = 0
+                  setTargetPos(null)
+                  setInteractionTimer(0)
+                  setShowFriendHeart(false)
+                  console.log(`[Cat ${def.name}] Social interaction complete`)
+                  return 0
+                }
+                // Show heart periodically during interaction
+                if (next % 1.0 < delta) {
+                  setShowFriendHeart(true)
+                  if (audioEnabled) playMeow()
+                  console.log(`[Cat ${def.name}] Meowing to friend!`)
+                }
+                return next
+              })
             }
           }
         }
@@ -409,6 +434,20 @@ export default function Cat({ def }: CatProps) {
           <Text
             fontSize={0.32}
             color="#D4606A"
+            anchorX="center"
+            anchorY="middle"
+          >
+            ♥
+          </Text>
+        </Billboard>
+      )}
+
+      {/* ── Friend heart during cat-to-cat interaction ───────────── */}
+      {showFriendHeart && (
+        <Billboard position={[0, 2.0, 0]}>
+          <Text
+            fontSize={0.28}
+            color="#6AD4D4"
             anchorX="center"
             anchorY="middle"
           >
