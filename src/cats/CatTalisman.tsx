@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback } from 'react'
+import { useRef, useState, useCallback, useEffect } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { Text, Billboard } from '@react-three/drei'
 import * as THREE from 'three'
@@ -11,12 +11,27 @@ import { CAT_REGISTRY } from './catData'
 // Players can interact with it to "revel" an unfound cat from the mist
 // ─────────────────────────────────────────────────────────────────────────────
 
-export default function CatTalisman() {
+interface CatTalismanProps {
+  position?: [number, number, number]
+}
+
+export default function CatTalisman({ position = [-1.5, 0, 12] }: CatTalismanProps) {
   const groupRef = useRef<THREE.Group>(null)
   const pulseRef = useRef(0)
   const [hovered, setHovered] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [messageTimer, setMessageTimer] = useState(0)
+
+  // Store initial position in a ref to preserve x/z during y animation
+  const initialPos = useRef<THREE.Vector3>(new THREE.Vector3(position[0], position[1], position[2]))
+  const targetY = useRef(1.5)
+
+  // Set initial group position on mount
+  useEffect(() => {
+    if (groupRef.current) {
+      groupRef.current.position.set(position[0], position[1], position[2])
+    }
+  }, [position])
 
   const { foundCats, findCat } = useCatProgress()
 
@@ -44,9 +59,10 @@ export default function CatTalisman() {
     const group = groupRef.current
     if (!group) return
 
-    // Gentle floating animation
+    // Gentle floating animation (only affect Y around target)
     pulseRef.current += delta * 1.5
-    group.position.y = 1.5 + Math.sin(pulseRef.current) * 0.15
+    targetY.current = initialPos.current.y + 1.5 + Math.sin(pulseRef.current) * 0.15
+    group.position.y = targetY.current
 
     // Slow rotation
     group.rotation.y += delta * 0.1
@@ -64,7 +80,7 @@ export default function CatTalisman() {
   return (
     <group
       ref={groupRef}
-      position={[-1.5, 0, 12]}
+      position={position}
       onPointerDown={handleInteract}
       onPointerOver={() => setHovered(true)}
       onPointerOut={() => setHovered(false)}
@@ -91,6 +107,12 @@ export default function CatTalisman() {
       <mesh rotation={[Math.PI / 2, 0, 0]} scale={[1.3, 1.3, 1.3]}>
         <torusGeometry args={[0.7, 0.01, 6, 16]} />
         <meshBasicMaterial color="#B88050" transparent opacity={0.4} />
+      </mesh>
+
+      {/* ── Invisible unified hitbox for interaction ────────────── */}
+      <mesh position={[0, 0, 0]} castShadow>
+        <sphereGeometry args={[1.2, 16, 16]} />
+        <meshBasicMaterial transparent opacity={0} colorWrite={false} depthWrite={false} />
       </mesh>
 
       {/* ── Tooltip ─────────────────────────────────────────────── */}

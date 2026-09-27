@@ -78,7 +78,7 @@ export default function Scene() {
         <CatRegistry />
 
         {/* Sanctuary offering for finding stray cats */}
-        <CatTalisman />
+        <CatTalisman position={[-1.5, 0, 10]} />
 
         {/* Game exhibits */}
         <FrameRegistry />
