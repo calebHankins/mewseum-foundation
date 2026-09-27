@@ -107,7 +107,7 @@ export default function SanctuaryRoom() {
 
       {/* Floor planks (thin raised strips for depth) */}
       {Array.from({ length: 9 }).map((_, i) => (
-        <mesh key={i} position={[i * 2.4 - 9.6, 0.002, 0]} receiveShadow>
+        <mesh key={i} position={[i * 2.4 - 9.6, 0.002, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
           <planeGeometry args={[0.06, ROOM_D]} />
           <meshLambertMaterial color="#3D2810" />
         </mesh>
