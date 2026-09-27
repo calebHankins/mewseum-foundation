@@ -3,7 +3,7 @@ import * as THREE from 'three'
 
 // Room dimensions (metres, roughly)
 const ROOM_W = 20
-const ROOM_H = 6
+const ROOM_H = 4.1
 const ROOM_D = 24
 
 // Warm amber palette — all Lambert (unlit-ish, PS1 style)
@@ -114,7 +114,7 @@ export default function SanctuaryRoom() {
       ))}
 
       {/* ── Room box (viewed from inside → BackSide) ──────────── */}
-      <mesh>
+      <mesh position={[0, ROOM_H / 2, 0]}>
         <boxGeometry args={[ROOM_W, ROOM_H, ROOM_D]} />
         <primitive object={wallMat} />
       </mesh>
@@ -142,8 +142,8 @@ export default function SanctuaryRoom() {
       ))}
 
       {/* ── Windows — left wall, facing into the room ─────────── */}
-      <Window position={[-ROOM_W / 2 + 0.08, 3.0, -6]} rotation={[0, Math.PI / 2, 0]} />
-      <Window position={[-ROOM_W / 2 + 0.08, 3.0,  6]} rotation={[0, Math.PI / 2, 0]} />
+      <Window position={[-ROOM_W / 2 + 0.08, 2.6, -6]} rotation={[0, Math.PI / 2, 0]} />
+      <Window position={[-ROOM_W / 2 + 0.08, 2.6,  6]} rotation={[0, Math.PI / 2, 0]} />
 
       {/* ── Furniture ─────────────────────────────────────────── */}
       <Bench position={[ 5,  0.3, -9]} />
