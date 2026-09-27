@@ -143,10 +143,11 @@ export default function Cat({ def }: CatProps) {
         const toOther = new THREE.Vector3().subVectors(otherPos, group.position)
         const distance = toOther.length()
         
-        if (distance < COLLISION_RADIUS * 1.5) {
-          // Strong repulsion to prevent overlap
+        // Soft repulsion for smooth interaction
+        if (distance < COLLISION_RADIUS * 2) {
           toOther.normalize()
-          const repulsionStrength = Math.max(0, (COLLISION_RADIUS * 1.5 - distance) * 8)
+          // Gentle repulsion - gets stronger as cats get closer but is never jarring
+          const repulsionStrength = Math.max(0, (COLLISION_RADIUS * 2 - distance) * 1.5)
           collisionVector.add(toOther.multiplyScalar(repulsionStrength))
         }
       }
@@ -157,44 +158,22 @@ export default function Cat({ def }: CatProps) {
     const roomD = 24
     const wallMargin = 1.0
     
-    if (group.position.x < -roomW/2 + wallMargin) collisionVector.x += 3.0
-    if (group.position.x > roomW/2 - wallMargin) collisionVector.x -= 3.0
-    if (group.position.z < -roomD/2 + wallMargin) collisionVector.z += 3.0
-    if (group.position.z > roomD/2 - wallMargin) collisionVector.z -= 3.0
+    if (group.position.x < -roomW/2 + wallMargin) collisionVector.x += 1.5
+    if (group.position.x > roomW/2 - wallMargin) collisionVector.x -= 1.5
+    if (group.position.z < -roomD/2 + wallMargin) collisionVector.z += 1.5
+    if (group.position.z > roomD/2 - wallMargin) collisionVector.z -= 1.5
     
-    // Apply collision repulsion
+    // Apply collision repulsion with smoothing
     if (collisionVector.length() > 0) {
       collisionVector.normalize()
       collisionVector.y = 0
       
-      group.position.x += collisionVector.x * WANDER_SPEED * 4 * delta
-      group.position.z += collisionVector.z * WANDER_SPEED * 4 * delta
+      // Gentle push - use lower multiplier for smooth movement
+      group.position.x += collisionVector.x * WANDER_SPEED * 1.5 * delta
+      group.position.z += collisionVector.z * WANDER_SPEED * 1.5 * delta
       
       setCatPosition(new THREE.Vector3(group.position.x, group.position.y, group.position.z))
     }
-    
-    // If still overlapping after physics, force separate (emergency)
-    Object.entries(catPositionsRegistry).forEach(([otherId, otherPos]) => {
-      if (otherId !== ownCatId) {
-        const toOther = new THREE.Vector3().subVectors(otherPos, group.position)
-        const distance = toOther.length()
-        
-        if (distance < COLLISION_RADIUS * 1.2) {
-          // Emergency separation - push away hard
-          toOther.normalize()
-          const separationForce = COLLISION_RADIUS * 2 - distance
-          group.position.x += toOther.x * separationForce * 2
-          group.position.z += toOther.z * separationForce * 2
-          setCatPosition(new THREE.Vector3(group.position.x, group.position.y, group.position.z))
-          
-          // Also update own position in registry after emergency separation
-          catPositionsRegistry[ownCatId] = group.position.clone()
-        }
-      }
-    })
-    
-    // Re-update registry after any emergency separation
-    catPositionsRegistry[ownCatId] = group.position.clone()
 
       // Heart countdown
     if (showHeart) {
@@ -258,7 +237,8 @@ export default function Cat({ def }: CatProps) {
             const socialChance = socialDrive / 10 // 0-1 based on drive
             
             // Only approach if random chance based on social drive passes
-            const shouldSocialize = Math.random() < socialChance
+            const randomRoll = Math.random()
+            const shouldSocialize = randomRoll < socialChance
             
             if (shouldSocialize) {
               // Find a social target
@@ -269,10 +249,10 @@ export default function Cat({ def }: CatProps) {
                 setTargetPos(socialPos.clone().add(new THREE.Vector3((Math.random() - 0.5) * 1.5, 0, (Math.random() - 0.5) * 1.5)))
                 setCatState('SOCIAL')
                 wanderTimerRef.current = 0
-                console.log(`[Cat ${def.name}] Approaching social partner (drive: ${socialDrive})`)
+                console.log(`[Cat ${def.name}] Approaching social partner ${partnerId} (drive: ${socialDrive}, rolled: ${randomRoll.toFixed(2)})`)
               }
             } else {
-              console.log(`[Cat ${def.name}] Skipping social (drive: ${socialDrive}, chance: ${socialChance.toFixed(2)})`)
+              console.log(`[Cat ${def.name}] Skipping social with ${partnerId} (drive: ${socialDrive}, chance: ${socialChance.toFixed(2)}, rolled: ${randomRoll.toFixed(2)})`)
             }
           } else {
             // Pick a new random wander target
@@ -357,11 +337,16 @@ export default function Cat({ def }: CatProps) {
                   console.log(`[Cat ${def.name}] Social interaction complete`)
                   return 0
                 }
-                // Show heart periodically during interaction
-                if (next % 1.0 < delta) {
+                // Show heart and meow during social interaction
+                if (next < SOCIAL_INTERACTION) {
                   setShowFriendHeart(true)
-                  if (audioEnabled) playMeow()
-                  console.log(`[Cat ${def.name}] Meowing to friend!`)
+                  if (audioEnabled) {
+                    // Play meow every 1.5 seconds
+                    if (Math.floor(next / 1.5) > Math.floor((next - delta) / 1.5)) {
+                      playMeow()
+                      console.log(`[Cat ${def.name}] Meowing to friend!`)
+                    }
+                  }
                 }
                 return next
               })
