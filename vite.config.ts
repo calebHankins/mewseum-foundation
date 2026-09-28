@@ -8,12 +8,14 @@ export default defineConfig({
     outDir: 'dist',
     sourcemap: false,
     chunkSizeWarningLimit: 700,
-    rollupOptions: {
+    rolldownOptions: {
       output: {
-        manualChunks: {
-          'three-vendor': ['three'],
-          'r3f-vendor':   ['@react-three/fiber', '@react-three/drei', '@react-three/postprocessing', 'postprocessing'],
-          'react-vendor':  ['react', 'react-dom'],
+        codeSplitting: {
+          groups: [
+            { name: 'three-vendor', test: /node_modules[\\/]three(?:[\\/]|$)/ },
+            { name: 'r3f-vendor', test: /node_modules[\\/](@react-three[\\/](?:fiber|drei|postprocessing)|postprocessing)(?:[\\/]|$)/ },
+            { name: 'react-vendor', test: /node_modules[\\/](?:react|react-dom)(?:[\\/]|$)/ },
+          ],
         },
       },
     },
