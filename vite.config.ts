@@ -1,14 +1,13 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// Set base to '/mewseum-foundation/' for GitHub Pages deployment.
-// Change to '/' for local / custom domain deployments.
 export default defineConfig({
   plugins: [react()],
-  base: '/',
+  base: '/mewseum-foundation/',
   build: {
     outDir: 'dist',
     sourcemap: false,
+    chunkSizeWarningLimit: 700,
     rollupOptions: {
       output: {
         manualChunks: {
