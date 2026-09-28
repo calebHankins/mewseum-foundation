@@ -37,7 +37,7 @@ Then open [http://localhost:5173](http://localhost:5173).
 ## Available Scripts
 
 | Command | Description |
-|---|---|
+| --- | --- |
 | `npm run dev` | Start Vite dev server with hot reload |
 | `npm run build` | Type-check + production build → `dist/` |
 | `npm run preview` | Preview the production build locally |
@@ -124,17 +124,9 @@ Open `src/frames/frameData.ts` and add an entry to `FRAME_DATA`:
 
 ### GitHub Pages deployment
 
-Set the `base` path in `vite.config.ts` to match your repository name, then push the `dist/` folder to the `gh-pages` branch:
+The GitHub Actions workflow builds the site and deploys `dist/` whenever a commit is pushed to `main`. To enable it, open **Settings → Pages** in the repository and select **GitHub Actions** as the build and deployment source. You can also run the deployment manually from the Actions tab.
 
-```ts
-// vite.config.ts
-base: '/mewseum-foundation/'
-```
-
-```bash
-npm run build
-# then deploy dist/ to gh-pages however you prefer
-```
+The public site will be available at <https://calebhankins.github.io/mewseum-foundation/> after the first successful deployment. GitHub Pages sites are public even when their source repository is private; publishing from a private repository requires a GitHub plan that supports it. Only the built site is published, but review its contents for anything you do not want public before enabling deployment.
 
 ---
 
@@ -168,7 +160,7 @@ Lower `bands` = more aggressive colour banding. Raise `ditherStrength` for a gra
 ## Tech Stack
 
 | Library | Purpose |
-|---|---|
+| --- | --- |
 | [React Three Fiber](https://docs.pmnd.rs/react-three-fiber) | Three.js in React |
 | [@react-three/drei](https://github.com/pmndrs/drei) | R3F helpers (Text, Billboard, controls) |
 | [@react-three/postprocessing](https://github.com/pmndrs/react-postprocessing) | Post-processing effect pipeline |
