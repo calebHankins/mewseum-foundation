@@ -34,9 +34,6 @@ lerna-debug.log*
 # vite
 .vite
 
-# tailwind
-tailwind.config.js
-
 # eslint
 .eslintcache
 
