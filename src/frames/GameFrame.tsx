@@ -11,11 +11,12 @@ interface GameFrameProps {
 /**
  * GameFrame — a wall-mounted exhibit.
  * Displays the game title + description on a low-poly frame.
- * Clicking/tapping opens the game URL in a new tab.
+ * Clicking/tapping opens linked exhibits or the built-in Pebble Sort game.
  */
 export default function GameFrame({ def, onOpenPebbleSort }: GameFrameProps) {
   const groupRef = useRef<THREE.Group>(null)
   const [hovered, setHovered] = useState(false)
+  const isInteractive = def.id === 'pebbles' || Boolean(def.url)
 
   const handleClick = useCallback(() => {
     if (def.id === 'pebbles') {
@@ -36,9 +37,9 @@ export default function GameFrame({ def, onOpenPebbleSort }: GameFrameProps) {
       ref={groupRef}
       position={def.position}
       rotation={def.rotation}
-      onPointerDown={handleClick}
-      onPointerOver={() => setHovered(true)}
-      onPointerOut={() => setHovered(false)}
+      onPointerDown={isInteractive ? handleClick : undefined}
+      onPointerOver={isInteractive ? () => setHovered(true) : undefined}
+      onPointerOut={isInteractive ? () => setHovered(false) : undefined}
     >
       {/* ── Outer frame border ─────────────────────────── */}
       <mesh castShadow>
