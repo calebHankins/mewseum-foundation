@@ -4,12 +4,12 @@
 
 The Treat Dispenser adds a self-contained interactive loop to the Found Foyer: a low-poly gumball-machine-style object dispenses treats that the player can drop into the world, which nearby cats then detect, walk toward, and eat. The feature deepens engagement with cats without altering the existing `CatProgressContext` / `findCat` discovery lifecycle.
 
-The design isolates all treat state in a new `TreatContext` (React Context + `localStorage`-free), extends the cat behavior state machine with a single new `EAT` state, and adds two new R3F scene components (`TreatDispenser`, `WorldTreat`). The HUD gains a lower-right treat slot driven by context state.
+The design isolates all treat state in a new `TreatContext` (React Context + `localStorage`-free), extends the cat behavior state machine with a single new `EAT` state, and adds two new R3F scene components (`TreatDispenser`, `WorldTreat`). Any number of identified WorldTreats may exist simultaneously, each with its own cat claim. The HUD gains a lower-right treat slot driven by context state.
 
 ### Goals
 
 - One discoverable, room-scale gumball machine visible from the player's spawn point.
-- A simple carry-and-drop mechanic (max one treat in flight at a time).
+- A simple carry-and-drop mechanic (one treat held at a time; unlimited unconsumed treats in the world).
 - Cats react to dropped treats with the same warmth as the petting interaction.
 - Zero changes to `CatProgressContext`, `findCat`, or any discovery logic.
 - Consistent PS1 aesthetic: `MeshLambertMaterial`, low-poly geometry, warm palette.
@@ -29,10 +29,10 @@ App
 │       ├── SceneLights
 │       ├── SanctuaryRoom
 │       ├── Atmosphere
-│       ├── CatRegistry   ← Cat instances now also read worldTreat from TreatContext
+│       ├── CatRegistry   ← Cat instances now also read worldTreats from TreatContext
 │       ├── CatTalisman
 │       ├── TreatDispenser ← NEW
-│       ├── WorldTreat     ← NEW (renders only when worldTreat ≠ null)
+│       ├── WorldTreat     ← NEW (renders one mesh per worldTreat)
 │       ├── FrameRegistry
 │       └── PS1Pipeline
 ```
@@ -46,20 +46,20 @@ Player clicks TreatDispenser
 
 Player presses F (desktop) or taps TreatHUD icon (mobile)
   → dropTreat(playerPos, playerForward)
-  → heldTreat = false, worldTreat = { position: playerPos + forward * 1.5 }
+  → heldTreat = false, append { id, position, claimedBy: null } to worldTreats
 
 Player clicks or taps an unclaimed WorldTreat while empty-handed
-  → pickupTreat()
-  → heldTreat = true, worldTreat = null
+  → pickupTreat(treatId)
+  → heldTreat = true, remove only that id from worldTreats
 
 Per-frame (Cat useFrame)
-  worldTreat exists + distance < TREAT_DETECTION_RADIUS + state IDLE/WANDER + claimedBy === null
-  → claimTreat(catId)
-  → claimedBy = catId
+  choose nearest unclaimed worldTreat within TREAT_DETECTION_RADIUS while state is IDLE/WANDER
+  → claimTreat(catId, treatId)
+  → that treat's claimedBy = catId
 
-Cat reaches treat (distance ≤ TREAT_REACH_DISTANCE)
-  → consumeTreat(catId)
-  → worldTreat = null, claimedBy = null
+Cat reaches its claimed treat (distance ≤ TREAT_REACH_DISTANCE)
+  → consumeTreat(catId, treatId)
+  → remove only that treat from worldTreats
   → Cat: scale-pulse + heart + meow + COOLDOWN
 ```
 
@@ -74,16 +74,19 @@ Provides global treat state to all consumers (Cat, HUD, TreatDispenser, Scene).
 ```ts
 interface TreatState {
   heldTreat: boolean
-  worldTreat: { position: THREE.Vector3 } | null
-  claimedBy: string | null  // cat id that has claimed the worldTreat
+  worldTreats: Array<{
+    id: number
+    position: THREE.Vector3
+    claimedBy: string | null
+  }>
 }
 
 interface TreatContextValue extends TreatState {
   dispenseTreat: () => void
   dropTreat: (playerPos: THREE.Vector3, playerForward: THREE.Vector3) => void
-  pickupTreat: () => void
-  claimTreat: (catId: string) => void
-  consumeTreat: (catId: string) => void
+  pickupTreat: (treatId: number) => void
+  claimTreat: (catId: string, treatId: number) => void
+  consumeTreat: (catId: string, treatId: number) => void
 }
 ```
 
@@ -93,16 +96,18 @@ interface TreatContextValue extends TreatState {
 | --- | --- | --- |
 | `dispenseTreat()` | `heldTreat === false` | `heldTreat → true` |
 | `dispenseTreat()` | `heldTreat === true` | no-op (dispenser shows tooltip) |
-| `dropTreat(pos, fwd)` | `heldTreat === true && worldTreat === null` | `heldTreat → false`, `worldTreat → { position: pos + fwd * DROP_FORWARD_OFFSET }` |
-| `dropTreat(pos, fwd)` | `heldTreat === false \|\| worldTreat !== null` | no-op |
-| `claimTreat(id)` | `worldTreat !== null && claimedBy === null` | `claimedBy → id` |
-| `claimTreat(id)` | `claimedBy !== null` | no-op (first-come, first-served) |
-| `consumeTreat(id)` | `claimedBy === id` | `worldTreat → null`, `claimedBy → null` |
-| `consumeTreat(id)` | `claimedBy !== id` | no-op (called by wrong cat — treat already eaten) |
+| `dropTreat(pos, fwd)` | `heldTreat === true` | `heldTreat → false`; append a new uniquely identified treat at `pos + fwd * DROP_FORWARD_OFFSET` |
+| `dropTreat(pos, fwd)` | `heldTreat === false` | no-op |
+| `pickupTreat(treatId)` | `!heldTreat && treat exists && treat.claimedBy === null` | `heldTreat → true`; remove only that treat |
+| `pickupTreat(treatId)` | `heldTreat || treat missing || treat.claimedBy !== null` | no-op |
+| `claimTreat(catId, treatId)` | treat exists and `treat.claimedBy === null` | set only that treat's `claimedBy → catId` |
+| `claimTreat(catId, treatId)` | treat missing or already claimed | no-op (first-come, first-served per treat) |
+| `consumeTreat(catId, treatId)` | treat's `claimedBy === catId` | remove only that treat |
+| `consumeTreat(catId, treatId)` | treat missing or claimed by another cat | no-op |
 
-`TreatContext` state is **not** persisted to `localStorage`. On page reload, all treat state resets to `{ heldTreat: false, worldTreat: null, claimedBy: null }`.
+`TreatContext` state is **not** persisted to `localStorage`. On page reload, all treat state resets to `{ heldTreat: false, worldTreats: [] }`.
 
-`pickupTreat()` only succeeds when the player is empty-handed and `claimedBy === null`; it moves the treat from `WORLD` back to `HELD`. The treat's resting center is `TREAT_REST_HEIGHT` (0.19 world units) above the floor: its 0.14-unit radius plus the 0.05-unit bob amplitude keeps the sphere above the ground through its full animation.
+Each world treat has its own id and claim owner. `pickupTreat(treatId)` only succeeds when the player is empty-handed and that treat is unclaimed; it moves that treat from `WORLD` back to `HELD`. Each treat's resting center is `TREAT_REST_HEIGHT` (0.19 world units) above the floor: its 0.14-unit radius plus the 0.05-unit bob amplitude keeps the sphere above the ground through its full animation.
 
 ---
 
@@ -146,7 +151,7 @@ The component reads `heldTreat` from `useTreatContext()`. Because the component 
 
 ### `src/treats/WorldTreat.tsx`
 
-R3F component. Returns `null` when `worldTreat` is `null`. Renders a small faceted sphere.
+R3F component. Renders one small faceted sphere for every entry in `worldTreats`; each mesh is keyed by treat id and owns its own animation refs.
 
 ```tsx
 // Geometry:
@@ -178,30 +183,30 @@ type CatState = 'IDLE' | 'WANDER' | 'SOCIAL' | 'REST' | 'COOLDOWN' | 'PUSHBACK' 
 **New per-frame logic (inside `useFrame`, after existing state machine, before rendering):**
 
 ```md
-// Treat detection — runs only in IDLE or WANDER states
+// Treat detection — choose the nearest unclaimed treat in IDLE or WANDER
 if (catState === 'IDLE' || catState === 'WANDER') {
-  if (worldTreat !== null && claimedBy === null) {
-    const dist = worldTreat.position.distanceTo(group.position)
-    if (dist < TREAT_DETECTION_RADIUS) {
-      claimTreat(def.id)
-      setCatState('EAT')
-      setTargetPos(worldTreat.position.clone())
-    }
+  const treat = nearestUnclaimedTreat(worldTreats, group.position)
+  if (treat) {
+    claimTreat(def.id, treat.id)
+    setTargetTreatId(treat.id)
+    setCatState('EAT')
   }
 }
 
 // EAT state movement (mirrors WANDER movement logic)
 if (catState === 'EAT') {
-  if (worldTreat === null || claimedBy !== def.id) {
-    // Treat was eaten by another cat or removed — bail out
+  const treat = worldTreats.find(item => item.id === targetTreatId)
+  if (!treat || treat.claimedBy !== def.id) {
+    // This cat's treat was eaten or picked up — bail out
     setCatState('IDLE')
     setTargetPos(null)
-  } else if (targetPos) {
-    const direction = new THREE.Vector3().subVectors(worldTreat.position, group.position)
+    setTargetTreatId(null)
+  } else {
+    const direction = new THREE.Vector3().subVectors(treat.position, group.position)
     const distance = direction.length()
     if (distance <= TREAT_REACH_DISTANCE) {
-      // Consume the treat
-      consumeTreat(def.id)
+      // Consume only the treat this cat claimed
+      consumeTreat(def.id, treat.id)
       // Play identical reaction to petting
       setPetting(true)
       setPetTimer(0)
@@ -221,7 +226,7 @@ if (catState === 'EAT') {
 **Context reads added at component top:**
 
 ```ts
-const { worldTreat, claimedBy, claimTreat, consumeTreat } = useTreatContext()
+const { worldTreats, claimTreat, consumeTreat } = useTreatContext()
 ```
 
 The treat-related context values are read unconditionally (not gated on `found`) so the hook call order is stable. The `EAT` state logic below only acts when `found` is true, matching the guard that already exists for all other cat behavior.
@@ -327,16 +332,18 @@ export default function App() {
 
 ```ts
 interface TreatState {
-  heldTreat: boolean                          // player is carrying a treat
-  worldTreat: { position: THREE.Vector3 } | null  // treat dropped in scene
-  claimedBy: string | null                    // cat id claiming the world treat
+  heldTreat: boolean
+  worldTreats: Array<{
+    id: number
+    position: THREE.Vector3
+    claimedBy: string | null
+  }>
 }
 
 // Initial state (also reset on every page load)
 const initialState: TreatState = {
   heldTreat: false,
-  worldTreat: null,
-  claimedBy: null,
+  worldTreats: [],
 }
 ```
 
@@ -366,23 +373,23 @@ No new persistent data. The `EAT` state is entirely ephemeral local component st
 
 *A property is a characteristic or behavior that should hold true across all valid executions of a system — essentially, a formal statement about what the system should do. Properties serve as the bridge between human-readable specifications and machine-verifiable correctness guarantees.*
 
-The Treat Dispenser feature is primarily composed of UI rendering, React state transitions, and Three.js scene mutations. Most acceptance criteria are covered by targeted example-based tests. Two criteria — the treat drop position formula and the first-come claim exclusion — involve meaningful input variation and universal invariants, making them candidates for property-based testing.
+The Treat Dispenser feature is primarily composed of UI rendering, React state transitions, and Three.js scene mutations. Most acceptance criteria are covered by targeted example-based tests. Three criteria — the treat drop position formula, per-treat claim exclusion, and appending drops without replacing existing treats — involve meaningful input variation and universal invariants, making them candidates for property-based testing.
 
 ### Property 1: Drop position is always a forward offset from the player
 
-*For any* valid player world-space position and any normalized forward direction vector, calling `dropTreat(position, forward)` should produce a `worldTreat` whose position equals `position + forward * DROP_FORWARD_OFFSET`, regardless of where in the room the player is standing or which direction they face.
+*For any* valid player world-space position and any normalized forward direction vector, calling `dropTreat(position, forward)` should append a treat whose position equals `position + forward * DROP_FORWARD_OFFSET`, regardless of existing treats or player orientation.
 
 **Validates: Requirements 3.1, 3.2**
 
-### Property 2: Treat claim is exclusive (first-come, first-served)
+### Property 2: Treat claim is exclusive per treat
 
-*For any* `claimedBy` value that is already set to a cat id, calling `claimTreat(otherCatId)` for any different cat id should leave `claimedBy` unchanged. The first claim always wins; no second cat can override it.
+*For any* treat id already claimed by one cat, calling `claimTreat(otherCatId, treatId)` for any different cat id should leave that treat's `claimedBy` unchanged. Claims on other treat ids remain independent.
 
 **Validates: Requirements 4.4**
 
-### Property 3: Dropping when a WorldTreat already exists has no effect
+### Property 3: Dropping appends another world treat
 
-*For any* existing `worldTreat` position, calling `dropTreat()` again (regardless of player position or forward vector) should leave `worldTreat.position` unchanged and `heldTreat` unchanged.
+*For any* non-empty `worldTreats` array and a held treat, calling `dropTreat(position, forward)` should preserve every existing treat and append one new treat at `position + forward * DROP_FORWARD_OFFSET`.
 
 **Validates: Requirements 3.5**
 
@@ -396,7 +403,7 @@ The Treat Dispenser feature is primarily composed of UI rendering, React state t
 
 ### Cat claim lost mid-EAT
 
-If `worldTreat` becomes `null` or `claimedBy` changes away from this cat's id while the cat is in `EAT` state (i.e., another cat consumed it first despite the claim guard, or the treat was otherwise cleared), the cat immediately transitions back to `IDLE` in the next `useFrame` tick. This is a defensive guard; under normal operation the `consumeTreat(id)` guard (`claimedBy !== id → no-op`) prevents this race.
+If a cat's target treat disappears or its `claimedBy` changes away from this cat while in `EAT`, the cat immediately transitions back to `IDLE` on the next `useFrame` tick. Other world treats remain unaffected.
 
 ### Drop with no treat held
 
@@ -416,7 +423,7 @@ If `worldTreat` becomes `null` or `claimedBy` changes away from this cat's id wh
 
 The feature is primarily composed of React Context state transitions, R3F scene components, and DOM overlay UI — not pure data-transformation functions. The testing approach therefore emphasises example-based unit tests for state transitions and targeted integration tests for the scene interactions.
 
-**PBT applicability**: Two pure state-transition functions (`dropTreat` and `claimTreat`) have universally-quantified invariants and cheap-to-generate inputs, making them appropriate for property-based testing. All other acceptance criteria are better served by example-based tests. See Correctness Properties above.
+**PBT applicability**: The state transitions for `dropTreat` and `claimTreat` have universally-quantified invariants and cheap-to-generate inputs, making them appropriate for property-based testing. All other acceptance criteria are better served by example-based tests. See Correctness Properties above.
 
 ### Property-Based Tests (fast-check)
 
@@ -425,7 +432,7 @@ Use [fast-check](https://github.com/dubzzz/fast-check) for the two PBT-eligible 
 ```ts
 // Feature: treat-dispenser, Property 1: Drop position is always a forward offset
 // Feature: treat-dispenser, Property 2: Treat claim is exclusive
-// Feature: treat-dispenser, Property 3: Dropping when WorldTreat exists has no effect
+// Feature: treat-dispenser, Property 3: Dropping appends another world treat
 ```
 
 Each test generates 100+ random inputs via `fc.record` / `fc.float` / `fc.string` arbitraries against the pure reducer functions extracted from `TreatContext`.
@@ -434,15 +441,16 @@ Each test generates 100+ random inputs via `fc.record` / `fc.float` / `fc.string
 
 | Area | What to test |
 | --- | --- |
-| `TreatContext` | `dispenseTreat` idempotency (calling twice stays held), `dropTreat` guard (no treat held → no-op), `consumeTreat` guard (wrong cat id → no-op), initial state reset |
+| `TreatContext` | `dispenseTreat` idempotency, `dropTreat` guard (no treat held → no-op), append while other treats exist, per-treat claim/consume guards, pickup removes only the selected unclaimed treat, initial state reset |
 | `TreatDispenser` | Renders without error; material type is `MeshLambertMaterial`; both `onClick` and `onPointerDown` props present; tooltip appears when heldTreat is true |
-| `WorldTreat` | Returns null when `worldTreat === null`; renders mesh when `worldTreat` is set; `castShadow` prop present; bob formula produces correct Y at known time values |
+| `WorldTreat` | Renders one mesh per `worldTreats` entry; each mesh has `castShadow`, independent bob animation, and id-specific pickup |
 | `HUD` TreatHUD section | Icon + label appear when `heldTreat=true`, absent when false; label text is "F to drop" on desktop, "Tap to drop" on touch; aria-label is present |
-| `Cat` EAT state | Transitions to EAT when within detection radius and unclaimed; bails to IDLE when worldTreat becomes null; consumeTreat called at reach distance |
+| `Cat` EAT state | Claims nearest unclaimed treat; only one cat can claim a treat id; bails to IDLE if its target disappears; consumes only its target at reach distance |
 
 ### Integration Tests
 
-- **Full treat loop**: Dispense → drop → cat walks to treat → eat reaction fires → worldTreat clears. Test against a minimal R3F scene using `@testing-library/react`.
+- **Full treat loop**: Dispense → drop multiple treats → cats claim different treats → eat reactions fire → each consumed treat is removed independently. Test against a minimal R3F scene using `@testing-library/react`.
 - **F key drop**: `keydown` event with `code: 'KeyF'` while `heldTreat=true` calls `dropTreat`.
 - **Tap drop**: `pointerdown` on TreatHUD icon calls `dropTreat`.
+- **Multiple treats and pickup**: dropping appends meshes; picking up or consuming one leaves the others in place.
 - **F key non-conflict**: `keydown` with `code: 'KeyF'` in `PlayerController` has no registered handler — confirm `KeyF` is not in `PlayerController`'s movement key map.

@@ -1,20 +1,25 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import * as THREE from 'three'
 import { DROP_FORWARD_OFFSET } from './treatData'
 
+export interface WorldTreatState {
+  id: number
+  position: THREE.Vector3
+  claimedBy: string | null
+}
+
 export interface TreatState {
   heldTreat: boolean
-  worldTreat: { position: THREE.Vector3 } | null
-  claimedBy: string | null
+  worldTreats: WorldTreatState[]
 }
 
 interface TreatContextValue extends TreatState {
   dispenseTreat: () => void
   dropTreat: (playerPos: THREE.Vector3, playerForward: THREE.Vector3) => void
-  pickupTreat: () => void
-  claimTreat: (catId: string) => void
-  consumeTreat: (catId: string) => void
+  pickupTreat: (treatId: number) => void
+  claimTreat: (catId: string, treatId: number) => void
+  consumeTreat: (catId: string, treatId: number) => void
 }
 
 const TreatCtx = createContext<TreatContextValue | null>(null)
@@ -22,9 +27,9 @@ const TreatCtx = createContext<TreatContextValue | null>(null)
 export function TreatProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<TreatState>({
     heldTreat: false,
-    worldTreat: null,
-    claimedBy: null,
+    worldTreats: [],
   })
+  const nextTreatId = useRef(0)
 
   const dispenseTreat = useCallback(() => {
     setState(current => current.heldTreat
@@ -33,35 +38,57 @@ export function TreatProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const dropTreat = useCallback((playerPos: THREE.Vector3, playerForward: THREE.Vector3) => {
+    const treatId = nextTreatId.current++
     setState(current => {
-      if (!current.heldTreat || current.worldTreat !== null) return current
+      if (!current.heldTreat) return current
       return {
         ...current,
         heldTreat: false,
-        worldTreat: { position: playerPos.clone().addScaledVector(playerForward, DROP_FORWARD_OFFSET) },
-        claimedBy: null,
+        worldTreats: [
+          ...current.worldTreats,
+          {
+            id: treatId,
+            position: playerPos.clone().addScaledVector(playerForward, DROP_FORWARD_OFFSET),
+            claimedBy: null,
+          },
+        ],
       }
     })
   }, [])
 
-  const pickupTreat = useCallback(() => {
+  const pickupTreat = useCallback((treatId: number) => {
     setState(current => {
-      if (current.heldTreat || current.worldTreat === null || current.claimedBy !== null) return current
-      return { ...current, heldTreat: true, worldTreat: null, claimedBy: null }
+      const treat = current.worldTreats.find(candidate => candidate.id === treatId)
+      if (current.heldTreat || !treat || treat.claimedBy !== null) return current
+      return {
+        ...current,
+        heldTreat: true,
+        worldTreats: current.worldTreats.filter(candidate => candidate.id !== treatId),
+      }
     })
   }, [])
 
-  const claimTreat = useCallback((catId: string) => {
+  const claimTreat = useCallback((catId: string, treatId: number) => {
     setState(current => {
-      if (current.worldTreat === null || current.claimedBy !== null) return current
-      return { ...current, claimedBy: catId }
+      const treat = current.worldTreats.find(candidate => candidate.id === treatId)
+      if (!treat || treat.claimedBy !== null) return current
+      return {
+        ...current,
+        worldTreats: current.worldTreats.map(candidate => candidate.id === treatId
+          ? { ...candidate, claimedBy: catId }
+          : candidate),
+      }
     })
   }, [])
 
-  const consumeTreat = useCallback((catId: string) => {
+  const consumeTreat = useCallback((catId: string, treatId: number) => {
     setState(current => {
-      if (current.claimedBy !== catId) return current
-      return { ...current, worldTreat: null, claimedBy: null }
+      const treat = current.worldTreats.find(candidate => candidate.id === treatId)
+      if (!treat || treat.claimedBy !== catId) return current
+      return {
+        ...current,
+        worldTreats: current.worldTreats.filter(candidate => candidate.id !== treatId),
+      }
     })
   }, [])
 

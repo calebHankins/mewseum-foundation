@@ -18,7 +18,7 @@ function isFirstVisit(): boolean {
 export default function HUD() {
   const { foundCount } = useCatProgress()
   const { audioEnabled, toggleAudio } = useAudioContext()
-  const { heldTreat, worldTreat, claimedBy, dropTreat } = useTreatContext()
+  const { heldTreat, worldTreats, dropTreat } = useTreatContext()
   const [showTutorial, setShowTutorial] = useState(isFirstVisit)
   const [isDesktop, setIsDesktop] = useState(true)
   const [reticlePosition, setReticlePosition] = useState(() => ({
@@ -97,9 +97,9 @@ export default function HUD() {
       <span className="sr-only" aria-label="Treat dispenser — click to get a treat">
         Treat dispenser
       </span>
-      {worldTreat && claimedBy === null && !heldTreat && (
-        <span className="sr-only" aria-label="Dropped treat — click or tap to pick up">
-          Dropped treat
+      {worldTreats.some(treat => treat.claimedBy === null) && !heldTreat && (
+        <span className="sr-only" aria-label="Dropped treats — click or tap to pick one up">
+          Dropped treats
         </span>
       )}
 

@@ -9,7 +9,7 @@ The Treat Dispenser adds an interactive gumball-machine-style object to the Foun
 - **TreatDispenser**: The gumball-machine 3D object placed in the Found Foyer. Players interact with it to receive a treat.
 - **Treat**: A small interactable sphere dispensed by the TreatDispenser. Exists in one of three states: `HELD`, `WORLD`, or `EATEN`.
 - **HeldTreat**: A Treat currently in the player's possession, rendered in the HUD's lower-right corner.
-- **WorldTreat**: A Treat that has been dropped into the 3D scene and can be detected by cats.
+- **WorldTreat**: One Treat dropped into the 3D scene; multiple WorldTreats can exist and be detected independently by cats.
 - **TreatDetectionRadius**: The distance (in world units) within which a cat can sense a WorldTreat.
 - **EatState**: The cat behavior state entered when a cat moves toward and consumes a WorldTreat.
 - **TreatHUD**: The HUD overlay element that displays the HeldTreat in the lower-right corner.
@@ -61,7 +61,7 @@ The Treat Dispenser adds an interactive gumball-machine-style object to the Foun
 2. WHEN the player taps the TreatHUD treat icon on a touch device while holding a treat, THE TreatContext SHALL transition the treat from `HELD` state to `WORLD` state at the player's forward position.
 3. WHEN a treat enters `WORLD` state, THE Scene SHALL render a small low-poly sphere mesh at the treat's world position using `MeshLambertMaterial`.
 4. WHEN a treat enters `WORLD` state, THE Scene SHALL apply a brief drop animation (scale from 0 to 1 over 0.3 seconds) to the WorldTreat mesh.
-5. THE Scene SHALL support a maximum of one WorldTreat in the scene at a time; dropping a treat while a WorldTreat already exists SHALL have no effect.
+5. THE Scene SHALL support multiple WorldTreats at once; dropping a treat SHALL add it to the scene without removing existing WorldTreats.
 6. IF the player attempts to drop a treat while holding zero treats, THEN THE TreatContext SHALL take no action.
 
 ---
@@ -72,12 +72,12 @@ The Treat Dispenser adds an interactive gumball-machine-style object to the Foun
 
 #### Acceptance Criteria
 
-1. WHILE a WorldTreat exists in the scene, THE Cat SHALL check the distance from its current position to the WorldTreat's position each frame inside `useFrame`.
-2. WHEN a Cat's distance to the WorldTreat is within TreatDetectionRadius (3.5 world units) and the Cat is in `IDLE` or `WANDER` state, THE Cat SHALL transition to `EatState` and set its movement target to the WorldTreat's position.
+1. WHILE one or more WorldTreats exist in the scene, THE Cat SHALL check their distances from its current position each frame inside `useFrame`.
+2. WHEN a Cat in `IDLE` or `WANDER` state is within TreatDetectionRadius (3.5 world units) of one or more unclaimed WorldTreats, THE Cat SHALL claim the nearest available treat and transition to `EatState` with that treat as its movement target.
 3. WHILE a Cat is in `EatState`, THE Cat SHALL move toward the WorldTreat at `WANDER_SPEED` using the same rotation-smoothing logic as the existing `WANDER` state.
-4. IF a second Cat detects the same WorldTreat while a first Cat is already in `EatState` targeting it, THEN THE second Cat SHALL NOT also enter `EatState` for that treat (first-come, first-served).
-5. WHEN a Cat in `EatState` reaches the WorldTreat (distance ≤ 0.4 world units), THE Cat SHALL consume the treat by triggering the `consumeTreat` action on TreatContext.
-6. IF the WorldTreat is consumed or removed while a Cat is in `EatState` targeting it, THEN THE Cat SHALL transition back to `IDLE` state.
+4. IF a second Cat detects a WorldTreat already claimed by another Cat, THEN THE second Cat SHALL NOT enter `EatState` for that treat; each treat has an independent first-come, first-served claim.
+5. WHEN a Cat in `EatState` reaches its claimed WorldTreat (distance ≤ 0.4 world units), THE Cat SHALL consume only that treat by triggering the `consumeTreat` action on TreatContext.
+6. IF the WorldTreat claimed by a Cat is consumed or picked up, THEN THE Cat SHALL transition back to `IDLE` state.
 
 ---
 
@@ -97,16 +97,16 @@ The Treat Dispenser adds an interactive gumball-machine-style object to the Foun
 
 ### Requirement 6: World Treat Persistence and Cleanup
 
-**User Story:** As a player, I want unclaimed treats to remain in the world until eaten or replaced, so that the interaction feels persistent.
+**User Story:** As a player, I want each unclaimed treat to remain in the world until it is eaten or picked up, so that multiple treats can persist independently.
 
 #### Acceptance Criteria
 
-1. THE WorldTreat SHALL remain in the scene until it is consumed by a cat.
-2. THE WorldTreat mesh SHALL cast a shadow consistent with the scene's `PCFSoftShadowMap` shadow setup.
-3. THE WorldTreat SHALL apply a gentle idle bob animation (sinusoidal Y offset, amplitude 0.05 world units, period 2 seconds) while resting in `WORLD` state.
-4. THE WorldTreat state (position and existence) SHALL be stored in `TreatContext` using React state — not in a Three.js object ref — so that all consumers (Cat, HUD, Scene) receive consistent updates.
-5. IF the player navigates away from the page and returns (full page reload), THEN the WorldTreat state SHALL reset to no treat in the world (WorldTreat state is NOT persisted to localStorage).
-6. THE WorldTreat SHALL rest at a center height that accounts for both its radius and full bob amplitude, so it never clips below the floor.
+1. Each WorldTreat SHALL remain in the scene until it is consumed by a cat or picked up by the player.
+2. Each WorldTreat mesh SHALL cast a shadow consistent with the scene's `PCFSoftShadowMap` shadow setup.
+3. Each WorldTreat SHALL apply a gentle idle bob animation (sinusoidal Y offset, amplitude 0.05 world units, period 2 seconds) while resting in `WORLD` state.
+4. All WorldTreat positions, existence, and claims SHALL be stored in `TreatContext` using React state — not in Three.js object refs — so that all consumers (Cat, HUD, Scene) receive consistent updates.
+5. IF the player navigates away from the page and returns (full page reload), THEN all WorldTreat state SHALL reset to no treats in the world (WorldTreat state is NOT persisted to localStorage).
+6. Each WorldTreat SHALL rest at a center height that accounts for both its radius and full bob amplitude, so it never clips below the floor.
 
 ---
 
@@ -129,7 +129,7 @@ The Treat Dispenser adds an interactive gumball-machine-style object to the Foun
 
 #### Acceptance Criteria
 
-1. WHEN a WorldTreat exists, the player holds no treat, and no cat has claimed it, THE player SHALL be able to pick it up by clicking or tapping the WorldTreat.
-2. WHEN the player picks up a WorldTreat, THE TreatContext SHALL remove it from the world and set `heldTreat` to true.
-3. IF the player already holds a treat or a cat has claimed the WorldTreat, THEN attempting to pick it up SHALL have no effect.
-4. THE WorldTreat SHALL support both `onClick` and `onPointerDown` events and expose an accessible label describing the pickup action.
+1. WHEN one or more unclaimed WorldTreats exist, the player holds no treat, and no cat has claimed the selected treat, THE player SHALL be able to pick up that individual treat by clicking or tapping it.
+2. WHEN the player picks up a WorldTreat, THE TreatContext SHALL remove only that treat from the world and set `heldTreat` to true.
+3. IF the player already holds a treat or a cat has claimed the selected WorldTreat, THEN attempting to pick it up SHALL have no effect on any treat.
+4. Each WorldTreat SHALL support both `onClick` and `onPointerDown` events and expose an accessible label describing the pickup action.

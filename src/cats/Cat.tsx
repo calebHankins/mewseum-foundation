@@ -6,6 +6,7 @@ import { useCatProgress } from '../progression/CatProgressContext'
 import { useAudioContext } from '../audio/AudioContext'
 import { playMeow } from '../audio/meow'
 import { useTreatContext } from '../treats/TreatContext'
+import type { WorldTreatState } from '../treats/TreatContext'
 import { TREAT_DETECTION_RADIUS, TREAT_REACH_DISTANCE } from '../treats/treatData'
 import type { CatDef } from './catData'
 import { CAT_REGISTRY } from './catData'
@@ -54,7 +55,7 @@ export default function Cat({ def }: CatProps) {
 
   const { isCatFound, findCat } = useCatProgress()
   const { audioEnabled } = useAudioContext()
-  const { worldTreat, claimedBy, claimTreat, consumeTreat } = useTreatContext()
+  const { worldTreats, claimTreat, consumeTreat } = useTreatContext()
   const found = isCatFound(def.id)
 
   // Get social properties with defaults
@@ -68,6 +69,7 @@ export default function Cat({ def }: CatProps) {
   const [hovered, setHovered] = useState(false)
   const [catState, setCatState] = useState<CatState>('IDLE')
   const [targetPos, setTargetPos] = useState<THREE.Vector3 | null>(null)
+  const [targetTreatId, setTargetTreatId] = useState<number | null>(null)
   const [socialTarget, setSocialTarget] = useState<string | null>(null)
   const [cooldownTimer, setCooldownTimer] = useState(0)
   const [interactionTimer, setInteractionTimer] = useState(0)
@@ -195,11 +197,23 @@ export default function Cat({ def }: CatProps) {
     if (found && !petting) {
       wanderTimerRef.current += delta
 
-      if ((catState === 'IDLE' || catState === 'WANDER') && worldTreat && claimedBy === null) {
-        if (worldTreat.position.distanceTo(group.position) <= TREAT_DETECTION_RADIUS) {
-          claimTreat(def.id)
+      if (catState === 'IDLE' || catState === 'WANDER') {
+        let nearestTreat: WorldTreatState | null = null
+        let nearestDistance = TREAT_DETECTION_RADIUS
+        for (const treat of worldTreats) {
+          if (treat.claimedBy !== null) continue
+          const distance = treat.position.distanceTo(group.position)
+          if (distance <= nearestDistance) {
+            nearestTreat = treat
+            nearestDistance = distance
+          }
+        }
+
+        if (nearestTreat) {
+          claimTreat(def.id, nearestTreat.id)
           setCatState('EAT')
-          setTargetPos(worldTreat.position.clone())
+          setTargetTreatId(nearestTreat.id)
+          setTargetPos(nearestTreat.position.clone())
         }
       }
 
@@ -365,22 +379,25 @@ export default function Cat({ def }: CatProps) {
           }
         }
       } else if (catState === 'EAT') {
-        if (!worldTreat || claimedBy !== def.id) {
+        const targetTreat = worldTreats.find(treat => treat.id === targetTreatId)
+        if (!targetTreat || targetTreat.claimedBy !== def.id) {
           setCatState('IDLE')
           setTargetPos(null)
+          setTargetTreatId(null)
         } else {
-          const direction = new THREE.Vector3().subVectors(worldTreat.position, group.position)
+          const direction = new THREE.Vector3().subVectors(targetTreat.position, group.position)
           direction.y = 0
           const distance = direction.length()
 
           if (distance <= TREAT_REACH_DISTANCE) {
-            consumeTreat(def.id)
+            consumeTreat(def.id, targetTreat.id)
             setPetting(true)
             setPetTimer(0)
             setShowHeart(true)
             setHeartTimer(0)
             setCatState('COOLDOWN')
             setCooldownTimer(PET_COOLDOWN)
+            setTargetTreatId(null)
             if (audioEnabled) playMeow()
           } else if (distance > 0) {
             direction.normalize()

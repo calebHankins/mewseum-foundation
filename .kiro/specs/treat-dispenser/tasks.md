@@ -21,41 +21,42 @@ Implementation follows the key order: foundation → scene objects → cat EAT s
     - _Requirements: 3.1, 3.2_
 
   - [x] 1.3 Create `src/treats/TreatContext.tsx` with `TreatState`, `TreatContextValue`, `TreatProvider`, and `useTreatContext`
-    - Define `TreatState`: `heldTreat: boolean`, `worldTreat: { position: THREE.Vector3 } | null`, `claimedBy: string | null`
+    - Define `TreatState`: `heldTreat: boolean` and `worldTreats: Array<{ id: number; position: THREE.Vector3; claimedBy: string | null }>`
     - Implement all five actions with their guard semantics from the design: `dispenseTreat`, `dropTreat`, `pickupTreat`, `claimTreat`, `consumeTreat`
-    - `dispenseTreat`: guard `heldTreat === false`; `dropTreat`: guard `heldTreat === true && worldTreat === null`; `claimTreat`: guard `claimedBy === null`; `consumeTreat`: guard `claimedBy === id`
-    - `pickupTreat`: guard `heldTreat === false && worldTreat !== null && claimedBy === null`
-    - Initial state: `{ heldTreat: false, worldTreat: null, claimedBy: null }` — no localStorage persistence
+    - `dispenseTreat`: guard `heldTreat === false`; `dropTreat`: guard `heldTreat === true` and append a new treat; claims, pickup, and consumption guard by treat id
+    - `pickupTreat(treatId)`: guard `heldTreat === false` and that treat exists unclaimed
+    - Initial state: `{ heldTreat: false, worldTreats: [] }` — no localStorage persistence
     - Export `TreatProvider` (default export) and `useTreatContext` named export; follow the `AudioContext.tsx` pattern exactly
     - _Requirements: 2.1, 2.2, 3.1, 3.2, 3.5, 3.6, 4.4, 5.5, 6.4, 6.5, 8.2, 8.3_
 
   - [ ]* 1.4 Write unit tests for `TreatContext` state transitions
     - Test `dispenseTreat` idempotency: calling twice leaves `heldTreat` true without error
     - Test `dropTreat` guard: no treat held → state unchanged
-    - Test `dropTreat` guard: worldTreat already exists → state unchanged (Property 3)
-    - Test `claimTreat` guard: already claimed → `claimedBy` unchanged
-    - Test `consumeTreat` guard: wrong cat id → state unchanged
+    - Test `dropTreat`: while world treats already exist, a new drop appends without replacing them
+    - Test `claimTreat` guard: another cat cannot claim the same treat id; a different treat remains claimable
+    - Test `consumeTreat` guard: wrong cat id or treat id → state unchanged
     - Test `pickupTreat` guard: claimed treat or held inventory → state unchanged
+    - Test `pickupTreat`: removes only the selected treat and preserves other world treats
     - Test initial state resets on each provider mount (no localStorage)
     - _Requirements: 3.5, 3.6, 4.4, 6.5_
 
   - [ ]* 1.5 Write property test for `dropTreat` position formula (Property 1)
     - **Property 1: Drop position is always a forward offset from the player**
-    - For any valid world-space position and normalized forward vector, `dropTreat(position, forward)` produces `worldTreat.position === position + forward * DROP_FORWARD_OFFSET`
+    - For any valid world-space position and normalized forward vector, `dropTreat(position, forward)` appends a treat at `position + forward * DROP_FORWARD_OFFSET`
     - Use `fc.record` with `fc.float` for x/y/z components; generate normalized forward vectors via `fc.float` + normalize
     - Run 100+ trials via fast-check
     - **Validates: Requirements 3.1, 3.2**
 
-  - [ ]* 1.6 Write property test for treat claim exclusivity (Property 2)
-    - **Property 2: Treat claim is exclusive (first-come, first-served)**
-    - For any `claimedBy` already set to a cat id, `claimTreat(otherCatId)` for any different id leaves `claimedBy` unchanged
-    - Use `fc.string` arbitraries for cat ids; vary the initial claimant and the challenger
+  - [ ]* 1.6 Write property test for per-treat claim exclusivity (Property 2)
+    - **Property 2: Treat claim is exclusive per treat**
+    - For any treat id claimed by one cat, `claimTreat(otherCatId, treatId)` leaves that treat's `claimedBy` unchanged; other treat ids are independent
+    - Use `fc.string` arbitraries for cat ids and generated treat ids
     - **Validates: Requirements 4.4**
 
-  - [ ]* 1.7 Write property test for drop-while-treat-exists no-op (Property 3)
-    - **Property 3: Dropping when a WorldTreat already exists has no effect**
-    - For any existing `worldTreat` position, calling `dropTreat()` again leaves `worldTreat.position` and `heldTreat` unchanged
-    - Use `fc.record` with `fc.float` for player position and forward vector
+  - [ ]* 1.7 Write property test for appending world treats (Property 3)
+    - **Property 3: Dropping appends another world treat**
+    - For any non-empty `worldTreats` array and held treat, dropping appends one new treat and preserves existing ids and positions
+    - Use `fc.array` for existing treat state and generated player position/forward vectors
     - **Validates: Requirements 3.5**
 
 - [x] 2. Scene objects — TreatDispenser and WorldTreat
@@ -68,11 +69,11 @@ Implementation follows the key order: foundation → scene objects → cat EAT s
     - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 7.1, 7.4_
 
   - [x] 2.2 Create `src/treats/WorldTreat.tsx`
-    - Return `null` when `worldTreat === null`; render `<sphereGeometry args={[0.14, 5, 4]} />` with `MeshLambertMaterial color={TREAT_COLOR}` and `castShadow`
+    - Render one `<sphereGeometry args={[0.14, 5, 4]} />` mesh with `MeshLambertMaterial color={TREAT_COLOR}` and `castShadow` for each entry in `worldTreats`; render nothing when the array is empty
     - Drop entrance animation: scale 0 → 1 over `DROP_ANIM_DURATION = 0.3 s` via `elapsedRef + useFrame`; no React state for animation values
     - Idle bob: Y offset = `sin(elapsed * Math.PI) * 0.05` (period 2 s, amplitude 0.05) via `useFrame`; center height is radius + amplitude to prevent floor clipping
     - Use `meshRef` and `elapsedRef` refs for animation; use component state only for hover feedback
-    - Read `worldTreat` from `useTreatContext()`
+    - Read `worldTreats` from `useTreatContext()` and key each mesh by its treat id
     - _Requirements: 3.3, 3.4, 6.1, 6.2, 6.3, 6.4, 8.1, 8.2, 8.3, 8.4_
 
   - [x] 2.3 Add guarded pickup interaction to `WorldTreat`
@@ -86,19 +87,19 @@ Implementation follows the key order: foundation → scene objects → cat EAT s
 - [x] 4. Cat state machine — add `EAT` state to `Cat.tsx`
   - [x] 4.1 Extend `CatState` type and wire treat context reads into `Cat.tsx`
     - Add `'EAT'` to the `CatState` union type at the top of `Cat.tsx`
-    - Add `const { worldTreat, claimedBy, claimTreat, consumeTreat } = useTreatContext()` unconditionally at component top (hook call order must be stable — not inside any conditional)
+    - Add `const { worldTreats, claimTreat, consumeTreat } = useTreatContext()` unconditionally at component top; track `targetTreatId` locally
     - Import `useTreatContext` from `../treats/TreatContext`; import constants from `../treats/treatData`
     - _Requirements: 4.1, 4.2_
 
   - [x] 4.2 Add treat detection logic in `useFrame` (IDLE/WANDER → EAT transition)
-    - After the existing collision block and before the wandering state machine, add a treat detection guard: runs only when `found === true && (catState === 'IDLE' || catState === 'WANDER') && worldTreat !== null && claimedBy === null`
-    - If distance from `group.position` to `worldTreat.position` is within `TREAT_DETECTION_RADIUS`, call `claimTreat(def.id)`, `setCatState('EAT')`, and `setTargetPos(worldTreat.position.clone())`
+    - After the existing collision block and before the wandering state machine, detect the nearest unclaimed treat within `TREAT_DETECTION_RADIUS` only when found and in `IDLE` or `WANDER`
+    - Call `claimTreat(def.id, treat.id)`, record `targetTreatId`, and enter `EAT`; claims are per treat id
     - _Requirements: 4.1, 4.2, 4.4_
 
   - [x] 4.3 Implement `EAT` state movement and consume logic in `useFrame`
-    - In the `EAT` branch: if `worldTreat === null || claimedBy !== def.id` bail immediately to `IDLE` + `setTargetPos(null)` (defensive guard per design error-handling section)
-    - Otherwise move toward `worldTreat.position` using the same rotation-smooth + translate pattern as `WANDER` state (`WANDER_SPEED`, `ROTATION_SPEED`)
-    - When `distance <= TREAT_REACH_DISTANCE`: call `consumeTreat(def.id)`, trigger `setPetting(true)`, `setPetTimer(0)`, `setShowHeart(true)`, `setHeartTimer(0)`, `setCatState('COOLDOWN')`, `setCooldownTimer(PET_COOLDOWN)`, and `if (audioEnabled) playMeow()`
+    - In the `EAT` branch, find `targetTreatId`; if missing or no longer claimed by this cat, bail immediately to `IDLE`
+    - Otherwise move toward that treat using the same rotation-smooth + translate pattern as `WANDER` state (`WANDER_SPEED`, `ROTATION_SPEED`)
+    - When `distance <= TREAT_REACH_DISTANCE`: call `consumeTreat(def.id, treat.id)`, trigger the pet-style reaction, and enter `COOLDOWN`
     - _Requirements: 4.3, 4.5, 4.6, 5.1, 5.2, 5.3, 5.4, 5.5_
 
 - [x] 5. HUD extension — TreatHUD slot and F-key listener
@@ -139,9 +140,10 @@ Implementation follows the key order: foundation → scene objects → cat EAT s
   - Run `tsc --noEmit` then `npm run lint`. All TypeScript errors and ESLint warnings must be zero. Ask the user if questions arise.
 
 - [ ]* 8. Integration smoke test — full treat loop
-  - Write an integration test using `@testing-library/react` + a minimal R3F scene harness that walks through: `dispenseTreat` → `dropTreat` → cat detects treat (simulate distance check) → `consumeTreat` called → `worldTreat` is null
+  - Write an integration test using `@testing-library/react` + a minimal R3F scene harness that drops multiple treats, assigns separate cat claims, consumes one, and confirms the others remain
   - Test F-key drop: `keydown` with `code: 'KeyF'` while `heldTreat === true` calls `dropTreat`
   - Test tap drop: `pointerdown` on TreatHUD icon calls `dropTreat`
+  - Test pickup: clicking one unclaimed WorldTreat removes only its id when others remain
   - _Requirements: 3.1, 3.2, 4.5, 5.5_
 
 ## Notes
