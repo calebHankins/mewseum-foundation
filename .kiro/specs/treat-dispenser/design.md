@@ -48,6 +48,10 @@ Player presses F (desktop) or taps TreatHUD icon (mobile)
   → dropTreat(playerPos, playerForward)
   → heldTreat = false, worldTreat = { position: playerPos + forward * 1.5 }
 
+Player clicks or taps an unclaimed WorldTreat while empty-handed
+  → pickupTreat()
+  → heldTreat = true, worldTreat = null
+
 Per-frame (Cat useFrame)
   worldTreat exists + distance < TREAT_DETECTION_RADIUS + state IDLE/WANDER + claimedBy === null
   → claimTreat(catId)
@@ -77,6 +81,7 @@ interface TreatState {
 interface TreatContextValue extends TreatState {
   dispenseTreat: () => void
   dropTreat: (playerPos: THREE.Vector3, playerForward: THREE.Vector3) => void
+  pickupTreat: () => void
   claimTreat: (catId: string) => void
   consumeTreat: (catId: string) => void
 }
@@ -97,6 +102,8 @@ interface TreatContextValue extends TreatState {
 
 `TreatContext` state is **not** persisted to `localStorage`. On page reload, all treat state resets to `{ heldTreat: false, worldTreat: null, claimedBy: null }`.
 
+`pickupTreat()` only succeeds when the player is empty-handed and `claimedBy === null`; it moves the treat from `WORLD` back to `HELD`. The treat's resting center is `TREAT_REST_HEIGHT` (0.19 world units) above the floor: its 0.14-unit radius plus the 0.05-unit bob amplitude keeps the sphere above the ground through its full animation.
+
 ---
 
 ### `src/treats/treatData.ts`
@@ -105,6 +112,7 @@ interface TreatContextValue extends TreatState {
 export const TREAT_DETECTION_RADIUS = 3.5  // metres — matches existing SOCIAL_RADIUS
 export const TREAT_REACH_DISTANCE = 0.4    // metres — cat "arrives" and eats
 export const DROP_FORWARD_OFFSET = 1.5     // metres forward from player when dropped
+export const TREAT_REST_HEIGHT = 0.19      // sphere radius + bob amplitude, above floor
 
 export const TREAT_COLOR = '#D4955A'       // warm amber — matches HUD palette
 export const TREAT_ACCENT = '#A77A52'      // darker amber for shadow face
@@ -154,6 +162,8 @@ R3F component. Returns `null` when `worldTreat` is `null`. Renders a small facet
 ```
 
 Refs used for animation: `meshRef` (THREE.Mesh), `elapsedRef` (number). No React state for animation values — only `useRef` + `useFrame`.
+
+The sphere supports `onClick` and `onPointerDown` to call `pickupTreat()`. Pickup is rejected by the context while the player holds a treat or a cat has claimed the world treat; hovering over an available treat shifts it to the darker amber accent.
 
 ---
 

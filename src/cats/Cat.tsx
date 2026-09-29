@@ -5,6 +5,8 @@ import * as THREE from 'three'
 import { useCatProgress } from '../progression/CatProgressContext'
 import { useAudioContext } from '../audio/AudioContext'
 import { playMeow } from '../audio/meow'
+import { useTreatContext } from '../treats/TreatContext'
+import { TREAT_DETECTION_RADIUS, TREAT_REACH_DISTANCE } from '../treats/treatData'
 import type { CatDef } from './catData'
 import { CAT_REGISTRY } from './catData'
 
@@ -44,7 +46,7 @@ const COLLISION_RADIUS = 0.6  // meters at which cats push away from each other
 // ─────────────────────────────────────────────────────────────────────────────
 // Cat behavior states
 // ─────────────────────────────────────────────────────────────────────────────
-type CatState = 'IDLE' | 'WANDER' | 'SOCIAL' | 'REST' | 'COOLDOWN' | 'PUSHBACK'
+type CatState = 'IDLE' | 'WANDER' | 'SOCIAL' | 'REST' | 'COOLDOWN' | 'PUSHBACK' | 'EAT'
 
 export default function Cat({ def }: CatProps) {
   const groupRef = useRef<THREE.Group>(null)
@@ -52,6 +54,7 @@ export default function Cat({ def }: CatProps) {
 
   const { isCatFound, findCat } = useCatProgress()
   const { audioEnabled } = useAudioContext()
+  const { worldTreat, claimedBy, claimTreat, consumeTreat } = useTreatContext()
   const found = isCatFound(def.id)
 
   // Get social properties with defaults
@@ -188,9 +191,17 @@ export default function Cat({ def }: CatProps) {
       setInteractionTimer(0)
     }
 
-    // ── Wandering and Social Behavior ─────────────────────────────
+    // ── Wandering, social, and treat behavior ─────────────────────
     if (found && !petting) {
       wanderTimerRef.current += delta
+
+      if ((catState === 'IDLE' || catState === 'WANDER') && worldTreat && claimedBy === null) {
+        if (worldTreat.position.distanceTo(group.position) <= TREAT_DETECTION_RADIUS) {
+          claimTreat(def.id)
+          setCatState('EAT')
+          setTargetPos(worldTreat.position.clone())
+        }
+      }
 
       // State machine for cat behavior
       if (catState === 'IDLE') {
@@ -351,6 +362,36 @@ export default function Cat({ def }: CatProps) {
                 return next
               })
             }
+          }
+        }
+      } else if (catState === 'EAT') {
+        if (!worldTreat || claimedBy !== def.id) {
+          setCatState('IDLE')
+          setTargetPos(null)
+        } else {
+          const direction = new THREE.Vector3().subVectors(worldTreat.position, group.position)
+          direction.y = 0
+          const distance = direction.length()
+
+          if (distance <= TREAT_REACH_DISTANCE) {
+            consumeTreat(def.id)
+            setPetting(true)
+            setPetTimer(0)
+            setShowHeart(true)
+            setHeartTimer(0)
+            setCatState('COOLDOWN')
+            setCooldownTimer(PET_COOLDOWN)
+            if (audioEnabled) playMeow()
+          } else if (distance > 0) {
+            direction.normalize()
+            const targetRotation = Math.atan2(direction.x, direction.z)
+            let rotationDiff = targetRotation - group.rotation.y
+            while (rotationDiff > Math.PI) rotationDiff -= Math.PI * 2
+            while (rotationDiff < -Math.PI) rotationDiff += Math.PI * 2
+            group.rotation.y += rotationDiff * ROTATION_SPEED * delta * 0.5
+            group.position.x += direction.x * WANDER_SPEED * delta
+            group.position.z += direction.z * WANDER_SPEED * delta
+            setCatPosition(new THREE.Vector3(group.position.x, group.position.y, group.position.z))
           }
         }
       } else if (catState === 'COOLDOWN') {

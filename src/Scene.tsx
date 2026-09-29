@@ -10,6 +10,8 @@ import CatTalisman from './cats/CatTalisman'
 import FrameRegistry from './frames/FrameRegistry'
 import PlayerController from './player/PlayerController'
 import PS1Pipeline from './shaders/PS1Pipeline'
+import TreatDispenser from './treats/TreatDispenser'
+import WorldTreat from './treats/WorldTreat'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // centeredEvents — identical to R3F's default pointer events, except that when
@@ -116,6 +118,10 @@ export default function Scene({ onOpenPebbleSort }: SceneProps) {
 
         {/* Sanctuary offering for finding stray cats */}
         <CatTalisman position={[-1.5, 0, 10]} />
+
+        {/* Treat station and any dropped treat */}
+        <TreatDispenser />
+        <WorldTreat />
 
         {/* Game exhibits */}
         <FrameRegistry onOpenPebbleSort={onOpenPebbleSort} />

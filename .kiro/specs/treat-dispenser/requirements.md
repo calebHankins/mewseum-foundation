@@ -16,7 +16,7 @@ The Treat Dispenser adds an interactive gumball-machine-style object to the Foun
 - **PlayerController**: The existing first-person camera and movement controller (`src/player/PlayerController.tsx`).
 - **Cat**: An individual cat instance managed by `src/cats/Cat.tsx`, running a behavior state machine inside `useFrame`.
 - **catPositionsRegistry**: The module-level `Record<string, THREE.Vector3>` in `Cat.tsx` that all cats write their positions to each frame.
-- **TreatContext**: A new React Context that stores the current Treat state (held count, world treat positions) and exposes actions to dispense, drop, and consume treats.
+- **TreatContext**: A new React Context that stores the current Treat state (held count, world treat positions) and exposes actions to dispense, drop, pick up, and consume treats.
 
 ---
 
@@ -46,8 +46,8 @@ The Treat Dispenser adds an interactive gumball-machine-style object to the Foun
 1. WHILE the player holds a treat, THE TreatHUD SHALL render a treat icon in the lower-right corner of the screen overlay using the existing TailwindCSS HUD system.
 2. WHILE the player holds no treat, THE TreatHUD SHALL not render the treat icon.
 3. THE TreatHUD SHALL use the project's warm amber color palette (`#D4955A`, `#A77A52`) and pixel-font styling consistent with the existing HUD elements.
-4. THE TreatHUD SHALL display a brief instructional label (e.g. "E / Tap to drop") that is visible only while a treat is held.
-5. THE TreatHUD treat icon and label SHALL be accessible via a DOM `aria-label` attribute describing "Held treat — press E or tap to drop".
+4. THE TreatHUD SHALL display a brief instructional label (e.g. "F / Tap to drop") that is visible only while a treat is held.
+5. THE TreatHUD treat icon and label SHALL be accessible via a DOM `aria-label` attribute describing "Held treat — press F or tap to drop".
 
 ---
 
@@ -57,7 +57,7 @@ The Treat Dispenser adds an interactive gumball-machine-style object to the Foun
 
 #### Acceptance Criteria
 
-1. WHEN the player presses the `E` key while holding a treat, THE TreatContext SHALL transition the treat from `HELD` state to `WORLD` state, placing it at the player's current world-space position offset slightly forward.
+1. WHEN the player presses the `F` key while holding a treat, THE TreatContext SHALL transition the treat from `HELD` state to `WORLD` state, placing it at the player's current world-space position offset slightly forward.
 2. WHEN the player taps the TreatHUD treat icon on a touch device while holding a treat, THE TreatContext SHALL transition the treat from `HELD` state to `WORLD` state at the player's forward position.
 3. WHEN a treat enters `WORLD` state, THE Scene SHALL render a small low-poly sphere mesh at the treat's world position using `MeshLambertMaterial`.
 4. WHEN a treat enters `WORLD` state, THE Scene SHALL apply a brief drop animation (scale from 0 to 1 over 0.3 seconds) to the WorldTreat mesh.
@@ -106,6 +106,7 @@ The Treat Dispenser adds an interactive gumball-machine-style object to the Foun
 3. THE WorldTreat SHALL apply a gentle idle bob animation (sinusoidal Y offset, amplitude 0.05 world units, period 2 seconds) while resting in `WORLD` state.
 4. THE WorldTreat state (position and existence) SHALL be stored in `TreatContext` using React state — not in a Three.js object ref — so that all consumers (Cat, HUD, Scene) receive consistent updates.
 5. IF the player navigates away from the page and returns (full page reload), THEN the WorldTreat state SHALL reset to no treat in the world (WorldTreat state is NOT persisted to localStorage).
+6. THE WorldTreat SHALL rest at a center height that accounts for both its radius and full bob amplitude, so it never clips below the floor.
 
 ---
 
@@ -116,6 +117,19 @@ The Treat Dispenser adds an interactive gumball-machine-style object to the Foun
 #### Acceptance Criteria
 
 1. THE TreatDispenser SHALL respond to `onPointerDown` in addition to `onClick` to support touch devices.
-2. THE TreatHUD treat icon SHALL be tappable on touch devices and trigger the same drop action as the `E` key.
-3. THE TreatHUD instructional label SHALL reflect the current input mode: "E to drop" on desktop (pointer: fine) and "Tap to drop" on touch devices.
+2. THE TreatHUD treat icon SHALL be tappable on touch devices and trigger the same drop action as the `F` key.
+3. THE TreatHUD instructional label SHALL reflect the current input mode: "F to drop" on desktop (pointer: fine) and "Tap to drop" on touch devices.
 4. ALL interactive elements added by this feature (TreatDispenser mesh, TreatHUD icon) SHALL include `aria-label` attributes describing their function.
+
+---
+
+### Requirement 8: Picking Up a Dropped Treat
+
+**User Story:** As a player, I want to retrieve a treat I dropped before a cat claims it, so that I can reposition it or carry it again.
+
+#### Acceptance Criteria
+
+1. WHEN a WorldTreat exists, the player holds no treat, and no cat has claimed it, THE player SHALL be able to pick it up by clicking or tapping the WorldTreat.
+2. WHEN the player picks up a WorldTreat, THE TreatContext SHALL remove it from the world and set `heldTreat` to true.
+3. IF the player already holds a treat or a cat has claimed the WorldTreat, THEN attempting to pick it up SHALL have no effect.
+4. THE WorldTreat SHALL support both `onClick` and `onPointerDown` events and expose an accessible label describing the pickup action.
