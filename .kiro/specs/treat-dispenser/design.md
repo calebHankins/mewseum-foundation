@@ -18,7 +18,7 @@ The design isolates all treat state in a new `TreatContext` (React Context + `lo
 
 ## Architecture
 
-```
+```md
 App
 ├── CatProgressProvider
 ├── AudioProvider
@@ -39,7 +39,7 @@ App
 
 ### State flow
 
-```
+```md
 Player clicks TreatDispenser
   → dispenseTreat()
   → heldTreat = true
@@ -85,7 +85,7 @@ interface TreatContextValue extends TreatState {
 **Action semantics:**
 
 | Action | Guard | Effect |
-|---|---|---|
+| --- | --- | --- |
 | `dispenseTreat()` | `heldTreat === false` | `heldTreat → true` |
 | `dispenseTreat()` | `heldTreat === true` | no-op (dispenser shows tooltip) |
 | `dropTreat(pos, fwd)` | `heldTreat === true && worldTreat === null` | `heldTreat → false`, `worldTreat → { position: pos + fwd * DROP_FORWARD_OFFSET }` |
@@ -127,6 +127,7 @@ R3F component. Placed at `[3, 0, 7]`. Low-poly gumball machine built from Three.
 ```
 
 **Interaction:**
+
 - `onPointerOver` / `onPointerOut` → toggle `hovered` local state → `emissiveIntensity` shifts from 0 to 0.3 on globe material.
 - `onPointerDown` + `onClick` → call `dispenseTreat()` if `heldTreat === false`; show inline `<Billboard>` tooltip "Hands full!" for 1.5 s if `heldTreat === true`.
 - `aria-label` on the group mesh: `"Treat dispenser — click to get a treat"`.
@@ -166,7 +167,7 @@ type CatState = 'IDLE' | 'WANDER' | 'SOCIAL' | 'REST' | 'COOLDOWN' | 'PUSHBACK' 
 
 **New per-frame logic (inside `useFrame`, after existing state machine, before rendering):**
 
-```
+```md
 // Treat detection — runs only in IDLE or WANDER states
 if (catState === 'IDLE' || catState === 'WANDER') {
   if (worldTreat !== null && claimedBy === null) {
@@ -422,7 +423,7 @@ Each test generates 100+ random inputs via `fc.record` / `fc.float` / `fc.string
 ### Unit Tests (Vitest + React Testing Library)
 
 | Area | What to test |
-|---|---|
+| --- | --- |
 | `TreatContext` | `dispenseTreat` idempotency (calling twice stays held), `dropTreat` guard (no treat held → no-op), `consumeTreat` guard (wrong cat id → no-op), initial state reset |
 | `TreatDispenser` | Renders without error; material type is `MeshLambertMaterial`; both `onClick` and `onPointerDown` props present; tooltip appears when heldTreat is true |
 | `WorldTreat` | Returns null when `worldTreat === null`; renders mesh when `worldTreat` is set; `castShadow` prop present; bob formula produces correct Y at known time values |
