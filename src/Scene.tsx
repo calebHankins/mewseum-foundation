@@ -48,11 +48,11 @@ function SceneLights() {
   return (
     <>
       {/* Warm ambient fill */}
-      <ambientLight color="#8A6040" intensity={0.55} />
+      <ambientLight color="#A77A52" intensity={0.95} />
       {/* Primary warm directional (simulates sunlight from windows) */}
       <directionalLight
         color="#D4955A"
-        intensity={1.2}
+        intensity={1.4}
         position={[-8, 7, -4]}
         castShadow
         shadow-mapSize-width={512}

@@ -14,8 +14,8 @@ export default function PS1Pipeline() {
     <EffectComposer>
       <PS1Effect
         blendFunction={BlendFunction.NORMAL}
-        bands={24}
-        ditherStrength={0.06}
+        bands={64}
+        ditherStrength={0.015625}
       />
     </EffectComposer>
   )

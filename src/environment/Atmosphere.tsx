@@ -201,8 +201,8 @@ export default function Atmosphere() {
       <GodRay position={[-5, 2.8, 5.5]} rotation={[0, 0, -0.35]} />
 
       {/* ── Warm point lights near windows ─────────────────── */}
-      <pointLight position={[-7, 3.5, -6]} color="#D4955A" intensity={1.8} distance={10} castShadow />
-      <pointLight position={[-7, 3.5, 6]} color="#D4955A" intensity={1.8} distance={10} castShadow />
+      <pointLight position={[-7, 3.5, -6]} color="#D4955A" intensity={1.8} distance={10} />
+      <pointLight position={[-7, 3.5, 6]} color="#D4955A" intensity={1.8} distance={10} />
     </group>
   )
 }
