@@ -149,6 +149,20 @@ export default function TreatDispenser() {
           </Text>
         </Billboard>
       )}
+      {hovered && !showHandsFull && (
+        <Billboard position={[0, 2.45, 0]}>
+          <Text
+            fontSize={0.18}
+            color="#D4955A"
+            anchorX="center"
+            anchorY="middle"
+            outlineWidth={0.01}
+            outlineColor="#1A1410"
+          >
+            Treat dispenser
+          </Text>
+        </Billboard>
+      )}
     </group>
   )
 }
