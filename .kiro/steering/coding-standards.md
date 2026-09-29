@@ -35,6 +35,12 @@ const [rotation, setRotation] = useState(0)
 - Color palette: warm ambers, dusty roses, muted teals — no neon or saturated hues
 - All geometry should be visibly low-poly (avoid subdivisions beyond 4 segments for organic shapes)
 
+## Depth and Shadow Checks
+
+- Avoid coplanar overlapping meshes. A closed room shell includes top and bottom faces, so separate floor and ceiling planes must be offset into the room; glass panes should sit slightly in front of their frame faces.
+- If a surface flickers or changes tone with camera movement, check for z-fighting before changing its material, lighting, or post-processing.
+- Keep shadow casting limited to intentional key lights. Fill point lights should not cast shadows by default; verify shadow changes with screenshots before and after a small camera move.
+
 ## Cat & Interaction Standards
 
 - Every cat must have a unique `id` (string slug, e.g. `"dusty"`, `"cinder"`)

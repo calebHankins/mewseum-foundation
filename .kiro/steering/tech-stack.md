@@ -44,6 +44,11 @@ pixelRatio: 1          // forces pixel-perfect look at 1:1
 shadowMap: PCFSoftShadowMap  // hard-ish shadows
 ```
 
+### Shadow and Surface Depth
+
+- The directional key light is the scene's shadow caster; warm window point lights are fill-only. Keep point-light shadows disabled unless a specific effect requires them and has been checked in motion.
+- `SanctuaryRoom` uses a closed room box as well as separate interior floor and ceiling planes. Keep those planes offset from the box's bottom and top faces, respectively; keep window glass slightly in front of its frame face to avoid z-fighting.
+
 ## Build & Deploy
 
 ```bash

@@ -114,6 +114,8 @@ The R3F `Canvas` is configured with `antialias: false` and `dpr={1}`. The `PS1Pi
 
 Never enable anti-aliasing or increase `dpr` — both break the aesthetic.
 
+For shadow and coplanar-surface rules, see `.kiro/steering/coding-standards.md` and `.kiro/steering/tech-stack.md`.
+
 ### Pointer Events (centeredEvents)
 
 When the Pointer Lock API has the cursor, `centeredEvents` in `Scene.tsx` forces the R3F raycaster through NDC (0, 0) — matching the HUD crosshair. This is required for correct cat/frame interaction while pointer-locked. Do not replace `centeredEvents` with R3F's default events.
