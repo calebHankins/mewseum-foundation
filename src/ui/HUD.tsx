@@ -3,6 +3,9 @@ import { useCatProgress } from '../progression/CatProgressContext'
 import { useAudioContext } from '../audio/AudioContext'
 import { useAmbientAudio } from '../audio/useAmbientAudio'
 import { CAT_REGISTRY } from '../cats/catData'
+import { playerState } from '../player/playerState'
+import { useTreatContext } from '../treats/TreatContext'
+import { TREAT_REST_HEIGHT } from '../treats/treatData'
 
 const TUTORIAL_KEY = 'mewseum_tutorial_seen'
 const TOTAL_CATS = CAT_REGISTRY.length
@@ -15,6 +18,7 @@ function isFirstVisit(): boolean {
 export default function HUD() {
   const { foundCount } = useCatProgress()
   const { audioEnabled, toggleAudio } = useAudioContext()
+  const { heldTreat, worldTreats, dropTreat } = useTreatContext()
   const [showTutorial, setShowTutorial] = useState(isFirstVisit)
   const [isDesktop, setIsDesktop] = useState(true)
   const [reticlePosition, setReticlePosition] = useState(() => ({
@@ -28,6 +32,18 @@ export default function HUD() {
   useEffect(() => {
     setIsDesktop(window.matchMedia('(pointer: fine)').matches)
   }, [])
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.code !== 'KeyF' || !heldTreat || event.repeat) return
+      const dropPosition = playerState.position.clone()
+      dropPosition.y = TREAT_REST_HEIGHT
+      dropTreat(dropPosition, playerState.forward.clone())
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [dropTreat, heldTreat])
 
   useEffect(() => {
     const pointerPosition = { x: window.innerWidth / 2, y: window.innerHeight / 2 }
@@ -77,6 +93,44 @@ export default function HUD() {
           </span>
         </div>
       </div>
+
+      <span className="sr-only" aria-label="Treat dispenser — click to get a treat">
+        Treat dispenser
+      </span>
+      {worldTreats.some(treat => treat.claimedBy === null) && !heldTreat && (
+        <span className="sr-only" aria-label="Dropped treats — click or tap to pick one up">
+          Dropped treats
+        </span>
+      )}
+
+      {heldTreat && (
+        <div
+          className="absolute bottom-14 right-4 pointer-events-auto flex flex-col items-center gap-1"
+          aria-label="Held treat — press F or tap to drop"
+        >
+          <button
+            className="bg-sanctuary-dark/80 border border-sanctuary-amber/40 px-3 py-2 rounded font-pixel text-lg text-sanctuary-amber flex items-center gap-2"
+            aria-label="Held treat — press F or tap to drop"
+            style={{ borderColor: heldTreat, color: heldTreat }}
+            onClick={() => {
+              const dropPosition = playerState.position.clone()
+              dropPosition.y = TREAT_REST_HEIGHT
+              dropTreat(dropPosition, playerState.forward.clone())
+            }}
+            onPointerDown={() => {
+              const dropPosition = playerState.position.clone()
+              dropPosition.y = TREAT_REST_HEIGHT
+              dropTreat(dropPosition, playerState.forward.clone())
+            }}
+          >
+            🍬
+            <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: heldTreat }} aria-hidden="true" />
+          </button>
+          <span className="font-pixel text-sanctuary-dust/70 text-xs">
+            {isDesktop ? 'F to drop' : 'Tap to drop'}
+          </span>
+        </div>
+      )}
 
       {/* ── Audio toggle — top left ─────────────────────────────────────── */}
       <button

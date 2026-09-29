@@ -15,7 +15,7 @@ Mewseum: Foundation is a browser-based, static-deployable 3D hub-world gallery. 
 ## Vocabulary (Use These Terms)
 
 | Concept | Preferred Term |
-|---|---|
+| --- | --- |
 | The main hub space | The Found Foyer, The Atrium, The Refuge |
 | Game entry points | Found Frames, Sanctuary Exhibits |
 | Lighting elements | Luma, Radiant, Skylight, Sunbeam, Ambient |
@@ -30,7 +30,7 @@ Mewseum: Foundation is a browser-based, static-deployable 3D hub-world gallery. 
 ## Key Files
 
 | File | Role |
-|---|---|
+| --- | --- |
 | `src/Scene.tsx` | Root R3F Canvas and scene composition |
 | `src/environment/SanctuaryRoom.tsx` | Room geometry, walls, windows, furniture |
 | `src/environment/Atmosphere.tsx` | God rays, pixel dust particles |
@@ -42,5 +42,3 @@ Mewseum: Foundation is a browser-based, static-deployable 3D hub-world gallery. 
 | `src/audio/useAmbientAudio.ts` | Web Audio ambient soundscape |
 | `src/ui/HUD.tsx` | React overlay (sound toggle, tutorial) |
 | `src/shaders/PS1Effect.tsx` | Post-processing dither + banding shader |
-
-#[[file:../../mewseum_foundation_moodboard.md]]

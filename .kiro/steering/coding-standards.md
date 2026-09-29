@@ -50,7 +50,7 @@ const [rotation, setRotation] = useState(0)
 
 ## File Naming
 
-```
+```md
 PascalCase  → React components  (Cat.tsx, GameFrame.tsx)
 camelCase   → hooks, utils      (useCatProgress.ts, audioUtils.ts)
 kebab-case  → assets            (dusty-cat-texture.png)

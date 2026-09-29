@@ -5,6 +5,14 @@ import * as THREE from 'three'
 import { useCatProgress } from '../progression/CatProgressContext'
 import { useAudioContext } from '../audio/AudioContext'
 import { playMeow } from '../audio/meow'
+import { useTreatContext } from '../treats/TreatContext'
+import type { WorldTreatState } from '../treats/TreatContext'
+import {
+  CAT_TREAT_DIGESTION_DURATION,
+  CAT_TREAT_SCALE_INCREASE,
+  TREAT_DETECTION_RADIUS,
+  TREAT_REACH_DISTANCE,
+} from '../treats/treatData'
 import type { CatDef } from './catData'
 import { CAT_REGISTRY } from './catData'
 
@@ -44,7 +52,7 @@ const COLLISION_RADIUS = 0.6  // meters at which cats push away from each other
 // ─────────────────────────────────────────────────────────────────────────────
 // Cat behavior states
 // ─────────────────────────────────────────────────────────────────────────────
-type CatState = 'IDLE' | 'WANDER' | 'SOCIAL' | 'REST' | 'COOLDOWN' | 'PUSHBACK'
+type CatState = 'IDLE' | 'WANDER' | 'SOCIAL' | 'REST' | 'COOLDOWN' | 'PUSHBACK' | 'EAT'
 
 export default function Cat({ def }: CatProps) {
   const groupRef = useRef<THREE.Group>(null)
@@ -52,6 +60,7 @@ export default function Cat({ def }: CatProps) {
 
   const { isCatFound, findCat } = useCatProgress()
   const { audioEnabled } = useAudioContext()
+  const { worldTreats, claimTreat, consumeTreat } = useTreatContext()
   const found = isCatFound(def.id)
 
   // Get social properties with defaults
@@ -65,6 +74,7 @@ export default function Cat({ def }: CatProps) {
   const [hovered, setHovered] = useState(false)
   const [catState, setCatState] = useState<CatState>('IDLE')
   const [targetPos, setTargetPos] = useState<THREE.Vector3 | null>(null)
+  const [targetTreatId, setTargetTreatId] = useState<number | null>(null)
   const [socialTarget, setSocialTarget] = useState<string | null>(null)
   const [cooldownTimer, setCooldownTimer] = useState(0)
   const [interactionTimer, setInteractionTimer] = useState(0)
@@ -79,6 +89,7 @@ export default function Cat({ def }: CatProps) {
   // Idle breathing oscillation
   const idlePhaseRef = useRef(Math.random() * Math.PI * 2)
   const wanderTimerRef = useRef(0)
+  const treatDigestionRef = useRef<number[]>([])
 
   // Use the shared module-level registry
   const ownCatId = def.id
@@ -112,6 +123,19 @@ export default function Cat({ def }: CatProps) {
 
     idlePhaseRef.current += delta * IDLE_SPEED
 
+    let activeTreatGrowth = 0
+    for (let index = treatDigestionRef.current.length - 1; index >= 0; index -= 1) {
+      const remaining = treatDigestionRef.current[index] - delta / CAT_TREAT_DIGESTION_DURATION
+      if (remaining <= 0) {
+        treatDigestionRef.current.splice(index, 1)
+      } else {
+        treatDigestionRef.current[index] = remaining
+        activeTreatGrowth += remaining
+      }
+    }
+    const growthScale = 1 + activeTreatGrowth * CAT_TREAT_SCALE_INCREASE
+    group.scale.setScalar(growthScale)
+
     // Idle breathing: subtle Y scale oscillation
     const breath = 1 + Math.sin(idlePhaseRef.current) * 0.015
     if (!petting) body.scale.setScalar(breath)
@@ -120,12 +144,12 @@ export default function Cat({ def }: CatProps) {
     if (petting) {
       const t = petTimer / PET_DURATION
       const pulse = 1 + Math.sin(t * Math.PI) * 0.18
-      group.scale.setScalar(pulse)
+      group.scale.setScalar(growthScale * pulse)
       setPetTimer(prev => {
         const next = prev + delta
         if (next >= PET_DURATION) {
           setPetting(false)
-          group.scale.setScalar(1)
+          group.scale.setScalar(growthScale)
         }
         return next
       })
@@ -188,9 +212,29 @@ export default function Cat({ def }: CatProps) {
       setInteractionTimer(0)
     }
 
-    // ── Wandering and Social Behavior ─────────────────────────────
+    // ── Wandering, social, and treat behavior ─────────────────────
     if (found && !petting) {
       wanderTimerRef.current += delta
+
+      if (catState === 'IDLE' || catState === 'WANDER') {
+        let nearestTreat: WorldTreatState | null = null
+        let nearestDistance = TREAT_DETECTION_RADIUS
+        for (const treat of worldTreats) {
+          if (treat.claimedBy !== null) continue
+          const distance = treat.position.distanceTo(group.position)
+          if (distance <= nearestDistance) {
+            nearestTreat = treat
+            nearestDistance = distance
+          }
+        }
+
+        if (nearestTreat) {
+          claimTreat(def.id, nearestTreat.id)
+          setCatState('EAT')
+          setTargetTreatId(nearestTreat.id)
+          setTargetPos(nearestTreat.position.clone())
+        }
+      }
 
       // State machine for cat behavior
       if (catState === 'IDLE') {
@@ -351,6 +395,40 @@ export default function Cat({ def }: CatProps) {
                 return next
               })
             }
+          }
+        }
+      } else if (catState === 'EAT') {
+        const targetTreat = worldTreats.find(treat => treat.id === targetTreatId)
+        if (!targetTreat || targetTreat.claimedBy !== def.id) {
+          setCatState('IDLE')
+          setTargetPos(null)
+          setTargetTreatId(null)
+        } else {
+          const direction = new THREE.Vector3().subVectors(targetTreat.position, group.position)
+          direction.y = 0
+          const distance = direction.length()
+
+          if (distance <= TREAT_REACH_DISTANCE) {
+            consumeTreat(def.id, targetTreat.id)
+            treatDigestionRef.current.push(1)
+            setPetting(true)
+            setPetTimer(0)
+            setShowHeart(true)
+            setHeartTimer(0)
+            setCatState('COOLDOWN')
+            setCooldownTimer(PET_COOLDOWN)
+            setTargetTreatId(null)
+            if (audioEnabled) playMeow()
+          } else if (distance > 0) {
+            direction.normalize()
+            const targetRotation = Math.atan2(direction.x, direction.z)
+            let rotationDiff = targetRotation - group.rotation.y
+            while (rotationDiff > Math.PI) rotationDiff -= Math.PI * 2
+            while (rotationDiff < -Math.PI) rotationDiff += Math.PI * 2
+            group.rotation.y += rotationDiff * ROTATION_SPEED * delta * 0.5
+            group.position.x += direction.x * WANDER_SPEED * delta
+            group.position.z += direction.z * WANDER_SPEED * delta
+            setCatPosition(new THREE.Vector3(group.position.x, group.position.y, group.position.z))
           }
         }
       } else if (catState === 'COOLDOWN') {

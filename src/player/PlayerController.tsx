@@ -1,6 +1,7 @@
 import { useRef, useEffect, useCallback } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
+import { playerState } from './playerState'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PlayerController
@@ -27,7 +28,7 @@ type Keys = Record<string, boolean>
 export default function PlayerController() {
   const { camera, gl } = useThree()
   const keys = useRef<Keys>({})
-  const yaw = useRef(0)   // horizontal look angle
+  const yaw = useRef(0)   // horizontal look angle; faces down the room toward the center
   const pitch = useRef(0)   // vertical look angle (clamped)
   const isLocked = useRef(false)
   const velY = useRef(0)   // vertical velocity for jumping/gravity
@@ -205,6 +206,9 @@ export default function PlayerController() {
     // Clamp to room bounds
     camera.position.x = Math.max(-BOUNDS.x, Math.min(BOUNDS.x, camera.position.x))
     camera.position.z = Math.max(-BOUNDS.z, Math.min(BOUNDS.z, camera.position.z))
+
+    playerState.position.copy(camera.position)
+    playerState.forward.copy(forward.current)
   })
 
   return null

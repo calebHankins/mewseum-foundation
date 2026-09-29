@@ -3,7 +3,7 @@
 ## Core Libraries
 
 | Library | Version | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | React | ^18 | UI component model |
 | React Three Fiber | ^8 | Three.js in React |
 | @react-three/drei | ^9 | R3F helpers (controls, loaders, shaders) |
@@ -15,7 +15,7 @@
 
 ## Architecture Pattern
 
-```
+```md
 App
 └── HUD (React overlay, absolute positioned)
 └── Canvas (R3F)
@@ -58,6 +58,7 @@ npm run preview # Preview the static build
 ```
 
 For GitHub Pages, set `base` in `vite.config.ts` to your repo name:
+
 ```ts
 base: '/mewseum-foundation/'
 ```
