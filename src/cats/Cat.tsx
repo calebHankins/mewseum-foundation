@@ -32,6 +32,7 @@ interface CatProps {
 // Shared position registry - ALL Cat instances share this
 // ─────────────────────────────────────────────────────────────────────────────
 const catPositionsRegistry: Record<string, THREE.Vector3> = {}
+const catSocialStateRegistry: Record<string, boolean> = {}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Cat wandering and social behavior constants
@@ -44,6 +45,8 @@ const ROTATION_SPEED = 2.5    // radians per second
 const WANDER_CHANGE_DIR = 1.5 // seconds between direction changes
 const SOCIAL_RADIUS = 3.5     // meters to consider another cat "nearby"
 const SOCIAL_INTERACTION = 2.5 // seconds social interaction lasts
+const SOCIAL_TIMEOUT = 4       // seconds before a social approach is abandoned
+const SOCIAL_SEPARATION_MULT = 4
 const PET_COOLDOWN = 8        // seconds cat stays near player after being pet
 const STAY_NEAR_PLAYER_RADIUS = 5 // meters to stay near player
 const COLLISION_RADIUS = 0.6  // meters at which cats push away from each other
@@ -90,6 +93,9 @@ export default function Cat({ def }: CatProps) {
   const idlePhaseRef = useRef(Math.random() * Math.PI * 2)
   const wanderTimerRef = useRef(0)
   const treatDigestionRef = useRef<number[]>([])
+  const socialSnapshotRef = useRef<THREE.Vector3 | null>(null)
+  const partnerCooldownsRef = useRef<Map<string, number>>(new Map())
+  const socialTimeoutRef = useRef(0)
 
   // Use the shared module-level registry
   const ownCatId = def.id
@@ -108,13 +114,19 @@ export default function Cat({ def }: CatProps) {
     setPetTimer(0)
     setShowHeart(true)
     setHeartTimer(0)
+    if (socialTarget) {
+      partnerCooldownsRef.current.set(socialTarget, def.socialFatigue ?? 15)
+    }
+    catSocialStateRegistry[ownCatId] = false
+    socialSnapshotRef.current = null
+    socialTimeoutRef.current = 0
     // Set cooldown state - cat will stay near player for a while
     setCatState('COOLDOWN')
     setCooldownTimer(PET_COOLDOWN)
     // Pick a target near the player
     setTargetPos(new THREE.Vector3(groupRef.current?.position.x ?? def.position[0], groupRef.current?.position.y ?? def.position[1], groupRef.current?.position.z ?? def.position[2]))
     console.log(`[Cat ${def.name}] Petted! Entering cooldown for ${PET_COOLDOWN}s`)
-  }, [audioEnabled, def.id, def.name, def.position, findCat, found])
+  }, [audioEnabled, def.id, def.name, def.position, def.socialFatigue, findCat, found, ownCatId, socialTarget])
 
   useFrame((_, delta) => {
     const group = groupRef.current
@@ -167,12 +179,16 @@ export default function Cat({ def }: CatProps) {
         const toOther = new THREE.Vector3().subVectors(otherPos, group.position)
         const distance = toOther.length()
         
-        // Soft repulsion for smooth interaction
+        // Repel cats from one another, including pairs at the exact same position.
         if (distance < COLLISION_RADIUS * 2) {
-          toOther.normalize()
-          // Gentle repulsion - gets stronger as cats get closer but is never jarring
+          if (distance > Number.EPSILON) {
+            toOther.normalize()
+          } else {
+            // Use opposite directions for the same-position pair so both cats separate.
+            toOther.set(ownCatId < otherId ? 1 : -1, 0, 0)
+          }
           const repulsionStrength = Math.max(0, (COLLISION_RADIUS * 2 - distance) * 1.5)
-          collisionVector.add(toOther.multiplyScalar(repulsionStrength))
+          collisionVector.sub(toOther.multiplyScalar(repulsionStrength))
         }
       }
     })
@@ -193,8 +209,9 @@ export default function Cat({ def }: CatProps) {
       collisionVector.y = 0
       
       // Gentle push - use lower multiplier for smooth movement
-      group.position.x += collisionVector.x * WANDER_SPEED * 1.5 * delta
-      group.position.z += collisionVector.z * WANDER_SPEED * 1.5 * delta
+      const separationMultiplier = catState === 'SOCIAL' ? SOCIAL_SEPARATION_MULT : 1.5
+      group.position.x += collisionVector.x * WANDER_SPEED * separationMultiplier * delta
+      group.position.z += collisionVector.z * WANDER_SPEED * separationMultiplier * delta
       
       setCatPosition(new THREE.Vector3(group.position.x, group.position.y, group.position.z))
     }
@@ -210,6 +227,15 @@ export default function Cat({ def }: CatProps) {
     // Reset friend heart when not showing
     if (!showFriendHeart && interactionTimer > 0) {
       setInteractionTimer(0)
+    }
+
+    for (const [partnerId, remaining] of partnerCooldownsRef.current) {
+      const next = remaining - delta
+      if (next <= 0) {
+        partnerCooldownsRef.current.delete(partnerId)
+      } else {
+        partnerCooldownsRef.current.set(partnerId, next)
+      }
     }
 
     // ── Wandering, social, and treat behavior ─────────────────────
@@ -284,18 +310,32 @@ export default function Cat({ def }: CatProps) {
             const randomRoll = Math.random()
             const shouldSocialize = randomRoll < socialChance
             
-            if (shouldSocialize) {
+            const partnerInSocial = catSocialStateRegistry[partnerId] === true
+            const partnerOnCooldown = (partnerCooldownsRef.current.get(partnerId) ?? 0) > 0
+
+            if (shouldSocialize && !partnerInSocial && !partnerOnCooldown) {
               // Find a social target
               const socialCat = CAT_REGISTRY.find(c => c.id === partnerId)
               if (socialCat) {
                 setSocialTarget(partnerId)
-                const socialPos = catPositionsRegistry[partnerId]
-                setTargetPos(socialPos.clone().add(new THREE.Vector3((Math.random() - 0.5) * 1.5, 0, (Math.random() - 0.5) * 1.5)))
+                const socialSnapshot = catPositionsRegistry[partnerId].clone().add(
+                  new THREE.Vector3((Math.random() - 0.5) * 1.5, 0, (Math.random() - 0.5) * 1.5),
+                )
+                socialSnapshotRef.current = socialSnapshot
+                setTargetPos(socialSnapshot.clone())
+                socialTimeoutRef.current = 0
+                catSocialStateRegistry[ownCatId] = true
                 setCatState('SOCIAL')
                 wanderTimerRef.current = 0
                 console.log(`[Cat ${def.name}] Approaching social partner ${partnerId} (drive: ${socialDrive}, rolled: ${randomRoll.toFixed(2)})`)
               }
             } else {
+              const wanderRangeX = 6
+              const wanderRangeZ = 10
+              const newX = def.position[0] + (Math.random() - 0.5) * wanderRangeX
+              const newZ = def.position[2] + (Math.random() - 0.5) * wanderRangeZ
+              setTargetPos(new THREE.Vector3(newX, group.position.y, newZ))
+              wanderTimerRef.current = 0
               console.log(`[Cat ${def.name}] Skipping social with ${partnerId} (drive: ${socialDrive}, chance: ${socialChance.toFixed(2)}, rolled: ${randomRoll.toFixed(2)})`)
             }
           } else {
@@ -344,11 +384,11 @@ export default function Cat({ def }: CatProps) {
           }
         }
       } else if (catState === 'SOCIAL') {
-        // Move toward social target
-        if (socialTarget && targetPos) {
+        socialTimeoutRef.current += delta
+        if (socialTarget && socialSnapshotRef.current && socialTimeoutRef.current < SOCIAL_TIMEOUT) {
           const targetCat = catPositionsRegistry[socialTarget]
           if (targetCat) {
-            const direction = new THREE.Vector3().subVectors(targetPos, group.position)
+            const direction = new THREE.Vector3().subVectors(socialSnapshotRef.current, group.position)
             const distance = direction.length()
             direction.normalize()
             
@@ -373,7 +413,11 @@ export default function Cat({ def }: CatProps) {
                 const next = prev + delta
                 if (next >= SOCIAL_INTERACTION) {
                   setCatState('IDLE')
+                  catSocialStateRegistry[ownCatId] = false
+                  partnerCooldownsRef.current.set(socialTarget, def.socialFatigue ?? 15)
                   setSocialTarget(null)
+                  socialSnapshotRef.current = null
+                  socialTimeoutRef.current = 0
                   wanderTimerRef.current = 0
                   setTargetPos(null)
                   setInteractionTimer(0)
@@ -396,6 +440,20 @@ export default function Cat({ def }: CatProps) {
               })
             }
           }
+        } else {
+          if (socialTarget) {
+            partnerCooldownsRef.current.set(socialTarget, def.socialFatigue ?? 15)
+          }
+          catSocialStateRegistry[ownCatId] = false
+          setCatState('IDLE')
+          setSocialTarget(null)
+          socialSnapshotRef.current = null
+          socialTimeoutRef.current = 0
+          setTargetPos(null)
+          setInteractionTimer(0)
+          setShowFriendHeart(false)
+          wanderTimerRef.current = 0
+          console.log(`[Cat ${def.name}] Social interaction timed out`)
         }
       } else if (catState === 'EAT') {
         const targetTreat = worldTreats.find(treat => treat.id === targetTreatId)

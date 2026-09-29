@@ -2,7 +2,7 @@
 
 ## Overview
 
-Cats in the Found Foyer permanently lock together in SOCIAL state, clumping and disrupting the cozy-sanctuary feel. The root cause is a combination of five defects in `src/cats/Cat.tsx`: live-tracked social target position, unconstrained mutual-chase entry, no state timeout, ignored `socialFatigue` cooldown data, and insufficient separation force. This design formalises the bug condition, defines correctness properties, and outlines the targeted changes required — all confined to `Cat.tsx`.
+Cats in the Found Foyer permanently lock together in SOCIAL state, clumping and disrupting the cozy-sanctuary feel. The root cause is a combination of six defects in `src/cats/Cat.tsx`: live-tracked social target position, unconstrained mutual-chase entry, no state timeout, ignored `socialFatigue` cooldown data, insufficient separation force, and an inverted collision vector that attracts cats instead of separating them. This design formalises the bug condition, defines correctness properties, and outlines the targeted changes required — all confined to `Cat.tsx`.
 
 ## Glossary
 
@@ -78,6 +78,8 @@ Based on the bug description and code review of `Cat.tsx`:
 4. **socialFatigue Unused (line ~240)**: `CAT_REGISTRY` entries carry `socialFatigue` values (8–30 s) but the SOCIAL selection logic never consults them. After any separation, the same pair can re-enter SOCIAL on the very next `WANDER_CHANGE_DIR` tick.
 
 5. **Weak Separation Impulse (line ~145)**: Collision repulsion uses `WANDER_SPEED * 1.5 * delta` (~0.027 m/frame at 60 fps). Two cats each approaching at `WANDER_SPEED * 0.7` add 0.021 m/frame net closure — the repulsion (0.027 m) barely exceeds approach velocity and any frame-timing variation makes it insufficient.
+
+6. **Inverted Collision Direction**: `toOther` points from the current cat toward the other cat, but the collision code added that vector to the movement force. This attracted cats instead of separating them. At exact overlap, normalization also produced no direction, leaving the cats locked together.
 
 ## Correctness Properties
 

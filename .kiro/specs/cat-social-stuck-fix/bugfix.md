@@ -38,6 +38,11 @@ that clump permanently, disrupting navigation and the overall cozy-sanctuary fee
     only a soft per-frame repulsion multiplied by 1.5 — insufficient to overcome the
     combined approach velocity of two cats both actively moving toward each other.
 
+1.7 WHEN two cats are within the collision radius, THEN the current collision vector
+    points toward the other cat instead of away from it, attracting the cats into an
+    overlap; WHEN their positions are identical, the normalized vector is zero and no
+    separation is applied.
+
 ### Expected Behavior (Correct)
 
 2.1 WHEN a cat enters SOCIAL state, THEN the system SHALL snapshot the target cat's
@@ -64,6 +69,10 @@ that clump permanently, disrupting navigation and the overall cozy-sanctuary fee
 2.6 WHEN two cats are within the collision radius and at least one is in SOCIAL state,
     THEN the system SHALL apply a decisive separation impulse strong enough to overcome
     the approach velocity and visibly push the cats apart within one to two frames.
+
+2.7 WHEN two cats are within the collision radius, THEN the collision impulse SHALL point
+    away from the other cat; WHEN their positions are identical, the system SHALL use a
+    deterministic opposing direction so both cats separate.
 
 ### Unchanged Behavior (Regression Prevention)
 
