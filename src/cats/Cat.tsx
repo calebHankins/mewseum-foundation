@@ -103,7 +103,7 @@ export default function Cat({ def }: CatProps) {
     // Pick a target near the player
     setTargetPos(new THREE.Vector3(groupRef.current?.position.x ?? def.position[0], groupRef.current?.position.y ?? def.position[1], groupRef.current?.position.z ?? def.position[2]))
     console.log(`[Cat ${def.name}] Petted! Entering cooldown for ${PET_COOLDOWN}s`)
-  }, [found, findCat, def.id, def.position, audioEnabled])
+  }, [audioEnabled, def.id, def.name, def.position, findCat, found])
 
   useFrame((_, delta) => {
     const group = groupRef.current
@@ -135,7 +135,7 @@ export default function Cat({ def }: CatProps) {
     // First, update own position in registry
     catPositionsRegistry[ownCatId] = group.position.clone()
     
-    let collisionVector = new THREE.Vector3(0, 0, 0)
+    const collisionVector = new THREE.Vector3(0, 0, 0)
     
     // Check other cats (using positions from registry)
     Object.entries(catPositionsRegistry).forEach(([otherId, otherPos]) => {
