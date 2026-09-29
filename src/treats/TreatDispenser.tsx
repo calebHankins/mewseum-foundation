@@ -36,7 +36,7 @@ export default function TreatDispenser() {
 
   return (
     <group
-      position={[3, 0, 7]}
+      position={[0, 0, 0]}
       onClick={interact}
       onPointerDown={interact}
       onPointerOver={() => setHovered(true)}

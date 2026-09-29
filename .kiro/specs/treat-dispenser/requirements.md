@@ -29,7 +29,7 @@ The Treat Dispenser adds an interactive gumball-machine-style object to the Foun
 #### Acceptance Criteria
 
 1. THE TreatDispenser SHALL be rendered as a low-poly 3D mesh in the Found Foyer using `MeshLambertMaterial` with no PBR materials.
-2. THE TreatDispenser SHALL be placed at world-space position (3, 0, 7) — to the right of and just behind the player's spawn position (0, 1.65, 6), immediately visible in the player's initial field of view, clear of existing furniture and cat spawn positions.
+2. THE TreatDispenser SHALL be placed at world-space position (0, 0, 0), the center of the Found Foyer. It SHALL be visible from the player's spawn position (0, 1.65, 6) when facing down -Z, without overlapping furniture or cat spawn positions.
 3. WHEN the player's reticle is aimed at the TreatDispenser, THE TreatDispenser SHALL highlight (color tint shift) to indicate it is interactive.
 4. WHEN the player interacts with the TreatDispenser while holding zero treats, THE TreatDispenser SHALL dispense exactly one treat to the player's inventory with no cooldown or rate limit between dispenses.
 5. WHEN the player interacts with the TreatDispenser while already holding a treat, THE TreatDispenser SHALL display a tooltip indicating the player's hands are full.

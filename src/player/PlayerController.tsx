@@ -28,7 +28,7 @@ type Keys = Record<string, boolean>
 export default function PlayerController() {
   const { camera, gl } = useThree()
   const keys = useRef<Keys>({})
-  const yaw = useRef(-1.89)   // horizontal look angle; starts toward the dispenser
+  const yaw = useRef(0)   // horizontal look angle; faces down the room toward the center
   const pitch = useRef(0)   // vertical look angle (clamped)
   const isLocked = useRef(false)
   const velY = useRef(0)   // vertical velocity for jumping/gravity

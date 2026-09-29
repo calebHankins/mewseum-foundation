@@ -61,7 +61,7 @@ Implementation follows the key order: foundation → scene objects → cat EAT s
 - [x] 2. Scene objects — TreatDispenser and WorldTreat
   - [x] 2.1 Create `src/treats/TreatDispenser.tsx`
     - Low-poly gumball machine using only `MeshLambertMaterial`: sphere globe (`sphereGeometry args={[0.55, 6, 5]}`), neck cylinder, base cylinder, coin-slot box — all segment counts ≤ 6 per PS1 rules
-    - Place at `[3, 0, 7]` as specified; globe emissive intensity shifts 0 → 0.3 on `onPointerOver`/`onPointerOut`
+    - Place at `[0, 0, 0]` in the room center; globe emissive intensity shifts 0 → 0.3 on `onPointerOver`/`onPointerOut`
     - `onPointerDown` + `onClick`: call `dispenseTreat()` if `heldTreat === false`; show inline `<Billboard>` "Hands full! 🐾" tooltip for 1.5 s (use `useRef` + `useFrame` countdown, no React state timer) if `heldTreat === true`
     - Add `aria-label="Treat dispenser — click to get a treat"` on the group
     - Read `heldTreat` from `useTreatContext()`; handle both `onClick` and `onPointerDown`

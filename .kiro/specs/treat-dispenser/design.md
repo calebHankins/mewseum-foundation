@@ -124,7 +124,7 @@ export const DISPENSER_BASE_COLOR  = '#5C3D20'   // dark wood base
 
 ### `src/treats/TreatDispenser.tsx`
 
-R3F component. Placed at `[3, 0, 7]`. Low-poly gumball machine built from Three.js primitives — a sphere globe sitting on a cylinder stand, with a small coin-slot box.
+R3F component. Placed at `[0, 0, 0]` in the center of the Found Foyer. Low-poly gumball machine built from Three.js primitives — a sphere globe sitting on a cylinder stand, with a small coin-slot box.
 
 ```tsx
 // Geometry breakdown (all MeshLambertMaterial):
