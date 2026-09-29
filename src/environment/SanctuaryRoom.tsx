@@ -120,7 +120,7 @@ export default function SanctuaryRoom() {
       </mesh>
 
       {/* ── Ceiling ───────────────────────────────────────────── */}
-      <mesh position={[0, ROOM_H, 0]} rotation={[Math.PI / 2, 0, 0]} receiveShadow>
+      <mesh position={[0, ROOM_H - 0.01, 0]} rotation={[Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[ROOM_W, ROOM_D, 2, 2]} />
         <primitive object={ceilMat} />
       </mesh>
