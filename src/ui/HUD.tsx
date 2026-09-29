@@ -109,8 +109,9 @@ export default function HUD() {
           aria-label="Held treat — press F or tap to drop"
         >
           <button
-            className="bg-sanctuary-dark/80 border border-sanctuary-amber/40 px-3 py-2 rounded font-pixel text-lg text-sanctuary-amber"
+            className="bg-sanctuary-dark/80 border border-sanctuary-amber/40 px-3 py-2 rounded font-pixel text-lg text-sanctuary-amber flex items-center gap-2"
             aria-label="Held treat — press F or tap to drop"
+            style={{ borderColor: heldTreat, color: heldTreat }}
             onClick={() => {
               const dropPosition = playerState.position.clone()
               dropPosition.y = TREAT_REST_HEIGHT
@@ -123,6 +124,7 @@ export default function HUD() {
             }}
           >
             🍬
+            <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: heldTreat }} aria-hidden="true" />
           </button>
           <span className="font-pixel text-sanctuary-dust/70 text-xs">
             {isDesktop ? 'F to drop' : 'Tap to drop'}

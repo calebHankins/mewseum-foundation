@@ -34,6 +34,9 @@ The Treat Dispenser adds an interactive gumball-machine-style object to the Foun
 4. WHEN the player interacts with the TreatDispenser while holding zero treats, THE TreatDispenser SHALL dispense exactly one treat to the player's inventory with no cooldown or rate limit between dispenses.
 5. WHEN the player interacts with the TreatDispenser while already holding a treat, THE TreatDispenser SHALL display a tooltip indicating the player's hands are full.
 6. THE TreatDispenser SHALL support both `onClick` and `onPointerDown` events for desktop and mobile compatibility.
+7. THE dispenser globe SHALL be semi-transparent so the player can see the low-poly treats inside it.
+8. WHEN a treat is successfully dispensed, THE treats inside the globe SHALL jostle briefly and settle back into place.
+9. WHEN a treat is dispensed, THE TreatContext SHALL randomly select its color from the same palette used by the candies inside the globe.
 
 ---
 
@@ -48,6 +51,7 @@ The Treat Dispenser adds an interactive gumball-machine-style object to the Foun
 3. THE TreatHUD SHALL use the project's warm amber color palette (`#D4955A`, `#A77A52`) and pixel-font styling consistent with the existing HUD elements.
 4. THE TreatHUD SHALL display a brief instructional label (e.g. "F / Tap to drop") that is visible only while a treat is held.
 5. THE TreatHUD treat icon and label SHALL be accessible via a DOM `aria-label` attribute describing "Held treat — press F or tap to drop".
+6. WHILE a treat is held, THE TreatHUD SHALL show a color swatch matching that treat's selected color.
 
 ---
 
@@ -63,6 +67,7 @@ The Treat Dispenser adds an interactive gumball-machine-style object to the Foun
 4. WHEN a treat enters `WORLD` state, THE Scene SHALL apply a brief drop animation (scale from 0 to 1 over 0.3 seconds) to the WorldTreat mesh.
 5. THE Scene SHALL support multiple WorldTreats at once; dropping a treat SHALL add it to the scene without removing existing WorldTreats.
 6. IF the player attempts to drop a treat while holding zero treats, THEN THE TreatContext SHALL take no action.
+7. WHEN a held treat is dropped, THE WorldTreat SHALL retain the color selected when it was dispensed.
 
 ---
 
@@ -133,6 +138,7 @@ The Treat Dispenser adds an interactive gumball-machine-style object to the Foun
 2. WHEN the player picks up a WorldTreat, THE TreatContext SHALL remove only that treat from the world and set `heldTreat` to true.
 3. IF the player already holds a treat or a cat has claimed the selected WorldTreat, THEN attempting to pick it up SHALL have no effect on any treat.
 4. Each WorldTreat SHALL support both `onClick` and `onPointerDown` events and expose an accessible label describing the pickup action.
+5. Picking up a WorldTreat SHALL preserve its color in the player's held treat.
 
 ---
 

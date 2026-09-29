@@ -1,16 +1,18 @@
 import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import * as THREE from 'three'
-import { DROP_FORWARD_OFFSET } from './treatData'
+import { DROP_FORWARD_OFFSET, TREAT_COLORS } from './treatData'
+import type { TreatColor } from './treatData'
 
 export interface WorldTreatState {
   id: number
   position: THREE.Vector3
+  color: TreatColor
   claimedBy: string | null
 }
 
 export interface TreatState {
-  heldTreat: boolean
+  heldTreat: TreatColor | null
   worldTreats: WorldTreatState[]
 }
 
@@ -26,29 +28,31 @@ const TreatCtx = createContext<TreatContextValue | null>(null)
 
 export function TreatProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<TreatState>({
-    heldTreat: false,
+    heldTreat: null,
     worldTreats: [],
   })
   const nextTreatId = useRef(0)
 
   const dispenseTreat = useCallback(() => {
-    setState(current => current.heldTreat
+    const color = TREAT_COLORS[Math.floor(Math.random() * TREAT_COLORS.length)]
+    setState(current => current.heldTreat !== null
       ? current
-      : { ...current, heldTreat: true })
+      : { ...current, heldTreat: color })
   }, [])
 
   const dropTreat = useCallback((playerPos: THREE.Vector3, playerForward: THREE.Vector3) => {
     const treatId = nextTreatId.current++
     setState(current => {
-      if (!current.heldTreat) return current
+      if (current.heldTreat === null) return current
       return {
         ...current,
-        heldTreat: false,
+        heldTreat: null,
         worldTreats: [
           ...current.worldTreats,
           {
             id: treatId,
             position: playerPos.clone().addScaledVector(playerForward, DROP_FORWARD_OFFSET),
+            color: current.heldTreat,
             claimedBy: null,
           },
         ],
@@ -59,10 +63,10 @@ export function TreatProvider({ children }: { children: ReactNode }) {
   const pickupTreat = useCallback((treatId: number) => {
     setState(current => {
       const treat = current.worldTreats.find(candidate => candidate.id === treatId)
-      if (current.heldTreat || !treat || treat.claimedBy !== null) return current
+      if (current.heldTreat !== null || !treat || treat.claimedBy !== null) return current
       return {
         ...current,
-        heldTreat: true,
+        heldTreat: treat.color,
         worldTreats: current.worldTreats.filter(candidate => candidate.id !== treatId),
       }
     })

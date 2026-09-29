@@ -21,16 +21,17 @@ Implementation follows the key order: foundation → scene objects → cat EAT s
     - _Requirements: 3.1, 3.2_
 
   - [x] 1.3 Create `src/treats/TreatContext.tsx` with `TreatState`, `TreatContextValue`, `TreatProvider`, and `useTreatContext`
-    - Define `TreatState`: `heldTreat: boolean` and `worldTreats: Array<{ id: number; position: THREE.Vector3; claimedBy: string | null }>`
+    - Define `TreatState`: `heldTreat: TreatColor | null` and `worldTreats: Array<{ id: number; position: THREE.Vector3; color: TreatColor; claimedBy: string | null }>`
     - Implement all five actions with their guard semantics from the design: `dispenseTreat`, `dropTreat`, `pickupTreat`, `claimTreat`, `consumeTreat`
-    - `dispenseTreat`: guard `heldTreat === false`; `dropTreat`: guard `heldTreat === true` and append a new treat; claims, pickup, and consumption guard by treat id
-    - `pickupTreat(treatId)`: guard `heldTreat === false` and that treat exists unclaimed
-    - Initial state: `{ heldTreat: false, worldTreats: [] }` — no localStorage persistence
+    - `dispenseTreat`: guard `heldTreat === null` and randomly select from `TREAT_COLORS`; `dropTreat`: guard `heldTreat !== null`, append a new treat with that color, then clear inventory
+    - `pickupTreat(treatId)`: guard `heldTreat === null` and that treat exists unclaimed; restore its color to inventory
+    - Initial state: `{ heldTreat: null, worldTreats: [] }` — no localStorage persistence
     - Export `TreatProvider` (default export) and `useTreatContext` named export; follow the `AudioContext.tsx` pattern exactly
     - _Requirements: 2.1, 2.2, 3.1, 3.2, 3.5, 3.6, 4.4, 5.5, 6.4, 6.5, 8.2, 8.3_
 
   - [ ]* 1.4 Write unit tests for `TreatContext` state transitions
-    - Test `dispenseTreat` idempotency: calling twice leaves `heldTreat` true without error
+    - Test `dispenseTreat` idempotency: calling twice leaves the selected `heldTreat` color unchanged
+    - Test `dispenseTreat` returns one of `TREAT_COLORS`; drop and pickup preserve the selected color
     - Test `dropTreat` guard: no treat held → state unchanged
     - Test `dropTreat`: while world treats already exist, a new drop appends without replacing them
     - Test `claimTreat` guard: another cat cannot claim the same treat id; a different treat remains claimable
@@ -62,14 +63,26 @@ Implementation follows the key order: foundation → scene objects → cat EAT s
 - [x] 2. Scene objects — TreatDispenser and WorldTreat
   - [x] 2.1 Create `src/treats/TreatDispenser.tsx`
     - Low-poly gumball machine using only `MeshLambertMaterial`: sphere globe (`sphereGeometry args={[0.55, 6, 5]}`), neck cylinder, base cylinder, coin-slot box — all segment counts ≤ 6 per PS1 rules
+    - Fill the globe with 40 faceted candies distributed through its volume; use a semi-transparent amber globe so candies are visible from different angles
+    - Jostle individual candies on successful dispense; use the shared `TREAT_COLORS` palette for the candies and random player reward
     - Place at `[0, 0, 0]` in the room center; globe emissive intensity shifts 0 → 0.3 on `onPointerOver`/`onPointerOut`
-    - `onPointerDown` + `onClick`: call `dispenseTreat()` if `heldTreat === false`; show inline `<Billboard>` "Hands full! 🐾" tooltip for 1.5 s (use `useRef` + `useFrame` countdown, no React state timer) if `heldTreat === true`
+    - `onPointerDown` + `onClick`: call `dispenseTreat()` if `heldTreat === null`; show inline `<Billboard>` "Hands full! 🐾" tooltip for 1.5 s (use `useRef` + `useFrame` countdown, no React state timer) if `heldTreat !== null`
     - Add `aria-label="Treat dispenser — click to get a treat"` on the group
     - Read `heldTreat` from `useTreatContext()`; handle both `onClick` and `onPointerDown`
     - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 7.1, 7.4_
 
+  - [x] 2.4 Add visible candies and dispense jostle animation
+    - Render 40 faceted low-poly Lambert candy meshes distributed throughout the translucent globe
+    - Animate them independently with a short damped jostle only when a treat is dispensed successfully
+    - _Requirements: 1.7, 1.8_
+
+  - [x] 2.5 Randomize treat color and preserve it through pickup/drop
+    - Select a random shared palette color when dispensing; show it in the HUD and retain it on the matching WorldTreat
+    - Picking up a WorldTreat restores that same color to held inventory
+    - _Requirements: 1.9, 2.6, 3.7, 8.5_
+
   - [x] 2.2 Create `src/treats/WorldTreat.tsx`
-    - Render one `<sphereGeometry args={[0.14, 5, 4]} />` mesh with `MeshLambertMaterial color={TREAT_COLOR}` and `castShadow` for each entry in `worldTreats`; render nothing when the array is empty
+    - Render one `<sphereGeometry args={[0.14, 5, 4]} />` mesh with `MeshLambertMaterial color={treat.color}` and `castShadow` for each entry in `worldTreats`; render nothing when the array is empty
     - Drop entrance animation: scale 0 → 1 over `DROP_ANIM_DURATION = 0.3 s` via `elapsedRef + useFrame`; no React state for animation values
     - Idle bob: Y offset = `sin(elapsed * Math.PI) * 0.05` (period 2 s, amplitude 0.05) via `useFrame`; center height is radius + amplitude to prevent floor clipping
     - Use `meshRef` and `elapsedRef` refs for animation; use component state only for hover feedback
@@ -110,14 +123,14 @@ Implementation follows the key order: foundation → scene objects → cat EAT s
 - [x] 5. HUD extension — TreatHUD slot and F-key listener
   - [x] 5.1 Add TreatHUD section to `HUD.tsx`
     - Import `useTreatContext` and read `heldTreat`, `dropTreat`
-    - Render lower-right treat slot only when `heldTreat === true`: a `<button>` with 🍬 emoji, both `onClick` and `onPointerDown` calling `dropTreat(playerState.position, playerState.forward)` (import `playerState` from `../player/playerState`)
+    - Render lower-right treat slot only when `heldTreat !== null`: a `<button>` with 🍬 emoji and matching color swatch, both `onClick` and `onPointerDown` calling `dropTreat(playerState.position, playerState.forward)` (import `playerState` from `../player/playerState`)
     - Label text: `"F to drop"` when `isDesktop === true`, `"Tap to drop"` otherwise — matching Requirement 7.3
     - Add `aria-label="Held treat — press F or tap to drop"` on the wrapper div — matching Requirement 2.5
     - Use warm amber palette (`text-sanctuary-amber`, `border-sanctuary-amber/40`) and `font-pixel` consistent with existing HUD elements
     - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 7.2, 7.3, 7.4_
 
   - [x] 5.2 Add `F` key listener in `HUD.tsx`
-    - In the existing `useEffect` that registers pointer/resize listeners, also add a `keydown` handler for `e.code === 'KeyF'` while `heldTreat === true`
+    - In the existing `useEffect` that registers pointer/resize listeners, also add a `keydown` handler for `e.code === 'KeyF'` while `heldTreat !== null`
     - Handler reads `playerState.position` and `playerState.forward` synchronously (no React state read) and calls `dropTreat(playerState.position.clone(), playerState.forward.clone())`
     - Ensure cleanup removes the keydown listener in the effect's return
     - Confirm `KeyF` does not conflict with `PlayerController`'s movement map
@@ -146,7 +159,7 @@ Implementation follows the key order: foundation → scene objects → cat EAT s
 
 - [ ]* 8. Integration smoke test — full treat loop
   - Write an integration test using `@testing-library/react` + a minimal R3F scene harness that drops multiple treats, assigns separate cat claims, consumes one, verifies growth/digestion, and confirms the others remain
-  - Test F-key drop: `keydown` with `code: 'KeyF'` while `heldTreat === true` calls `dropTreat`
+  - Test F-key drop: `keydown` with `code: 'KeyF'` while `heldTreat !== null` calls `dropTreat`
   - Test tap drop: `pointerdown` on TreatHUD icon calls `dropTreat`
   - Test pickup: clicking one unclaimed WorldTreat removes only its id when others remain
   - _Requirements: 3.1, 3.2, 4.5, 5.5_

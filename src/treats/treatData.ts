@@ -9,5 +9,7 @@ export const CAT_TREAT_DIGESTION_DURATION = 20
 
 export const TREAT_COLOR = '#D4955A'
 export const TREAT_ACCENT = '#A77A52'
+export const TREAT_COLORS = [TREAT_COLOR, '#91A98A', '#D4606A', TREAT_ACCENT] as const
+export type TreatColor = (typeof TREAT_COLORS)[number]
 export const DISPENSER_GLOBE_COLOR = '#C87050'
 export const DISPENSER_BASE_COLOR = '#5C3D20'

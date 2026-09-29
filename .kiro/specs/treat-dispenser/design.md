@@ -42,15 +42,15 @@ App
 ```md
 Player clicks TreatDispenser
   → dispenseTreat()
-  → heldTreat = true
+  → heldTreat = random TREAT_COLORS entry
 
 Player presses F (desktop) or taps TreatHUD icon (mobile)
   → dropTreat(playerPos, playerForward)
-  → heldTreat = false, append { id, position, claimedBy: null } to worldTreats
+  → heldTreat = null, append { id, position, color, claimedBy: null } to worldTreats
 
 Player clicks or taps an unclaimed WorldTreat while empty-handed
   → pickupTreat(treatId)
-  → heldTreat = true, remove only that id from worldTreats
+  → heldTreat = that treat's color, remove only that id from worldTreats
 
 Per-frame (Cat useFrame)
   choose nearest unclaimed worldTreat within TREAT_DETECTION_RADIUS while state is IDLE/WANDER
@@ -73,10 +73,11 @@ Provides global treat state to all consumers (Cat, HUD, TreatDispenser, Scene).
 
 ```ts
 interface TreatState {
-  heldTreat: boolean
+  heldTreat: TreatColor | null
   worldTreats: Array<{
     id: number
     position: THREE.Vector3
+    color: TreatColor
     claimedBy: string | null
   }>
 }
@@ -94,18 +95,18 @@ interface TreatContextValue extends TreatState {
 
 | Action | Guard | Effect |
 | --- | --- | --- |
-| `dispenseTreat()` | `heldTreat === false` | `heldTreat → true` |
-| `dispenseTreat()` | `heldTreat === true` | no-op (dispenser shows tooltip) |
-| `dropTreat(pos, fwd)` | `heldTreat === true` | `heldTreat → false`; append a new uniquely identified treat at `pos + fwd * DROP_FORWARD_OFFSET` |
-| `dropTreat(pos, fwd)` | `heldTreat === false` | no-op |
-| `pickupTreat(treatId)` | `!heldTreat && treat exists && treat.claimedBy === null` | `heldTreat → true`; remove only that treat |
-| `pickupTreat(treatId)` | `heldTreat || treat missing || treat.claimedBy !== null` | no-op |
+| `dispenseTreat()` | `heldTreat === null` | choose a random `TREAT_COLORS` entry for `heldTreat` |
+| `dispenseTreat()` | `heldTreat !== null` | no-op (dispenser shows tooltip) |
+| `dropTreat(pos, fwd)` | `heldTreat !== null` | append a uniquely identified treat with the held color at `pos + fwd * DROP_FORWARD_OFFSET`; set `heldTreat → null` |
+| `dropTreat(pos, fwd)` | `heldTreat === null` | no-op |
+| `pickupTreat(treatId)` | `heldTreat === null && treat exists && treat.claimedBy === null` | `heldTreat → treat.color`; remove only that treat |
+| `pickupTreat(treatId)` | `heldTreat !== null || treat missing || treat.claimedBy !== null` | no-op |
 | `claimTreat(catId, treatId)` | treat exists and `treat.claimedBy === null` | set only that treat's `claimedBy → catId` |
 | `claimTreat(catId, treatId)` | treat missing or already claimed | no-op (first-come, first-served per treat) |
 | `consumeTreat(catId, treatId)` | treat's `claimedBy === catId` | remove only that treat |
 | `consumeTreat(catId, treatId)` | treat missing or claimed by another cat | no-op |
 
-`TreatContext` state is **not** persisted to `localStorage`. On page reload, all treat state resets to `{ heldTreat: false, worldTreats: [] }`.
+`TreatContext` state is **not** persisted to `localStorage`. On page reload, all treat state resets to `{ heldTreat: null, worldTreats: [] }`. The held color is stored as a `TreatColor`, and each world treat keeps the same color through dropping and pickup.
 
 Each world treat has its own id and claim owner. `pickupTreat(treatId)` only succeeds when the player is empty-handed and that treat is unclaimed; it moves that treat from `WORLD` back to `HELD`. Each treat's resting center is `TREAT_REST_HEIGHT` (0.19 world units) above the floor: its 0.14-unit radius plus the 0.05-unit bob amplitude keeps the sphere above the ground through its full animation.
 
@@ -121,6 +122,8 @@ export const TREAT_REST_HEIGHT = 0.19      // sphere radius + bob amplitude, abo
 
 export const TREAT_COLOR = '#D4955A'       // warm amber — matches HUD palette
 export const TREAT_ACCENT = '#A77A52'      // darker amber for shadow face
+export const TREAT_COLORS = [TREAT_COLOR, '#91A98A', '#D4606A', TREAT_ACCENT] as const
+export type TreatColor = (typeof TREAT_COLORS)[number]
 export const DISPENSER_GLOBE_COLOR = '#C87050'   // reddish-orange gumball globe
 export const DISPENSER_BASE_COLOR  = '#5C3D20'   // dark wood base
 ```
@@ -129,7 +132,7 @@ export const DISPENSER_BASE_COLOR  = '#5C3D20'   // dark wood base
 
 ### `src/treats/TreatDispenser.tsx`
 
-R3F component. Placed at `[0, 0, 0]` in the center of the Found Foyer. Low-poly gumball machine built from Three.js primitives — a sphere globe sitting on a cylinder stand, with a small coin-slot box.
+R3F component. Placed at `[0, 0, 0]` in the center of the Found Foyer. Low-poly gumball machine built from Three.js primitives — a sphere globe sitting on a cylinder stand, with a small coin-slot box and 40 candies distributed through the globe volume using a deterministic spherical layout.
 
 ```tsx
 // Geometry breakdown (all MeshLambertMaterial):
@@ -142,7 +145,9 @@ R3F component. Placed at `[0, 0, 0]` in the center of the Found Foyer. Low-poly 
 **Interaction:**
 
 - `onPointerOver` / `onPointerOut` → toggle `hovered` local state → `emissiveIntensity` shifts from 0 to 0.3 on globe material.
-- `onPointerDown` + `onClick` → call `dispenseTreat()` if `heldTreat === false`; show inline `<Billboard>` tooltip "Hands full!" for 1.5 s if `heldTreat === true`.
+- `onPointerDown` + `onClick` → call `dispenseTreat()` if `heldTreat === null`; show inline `<Billboard>` tooltip "Hands full!" for 1.5 s if `heldTreat !== null`.
+- Globe uses `MeshLambertMaterial` with amber tint, `transparent`, `opacity={0.32}`, and `depthWrite={false}` so its contents remain visible.
+- Forty small faceted `MeshLambertMaterial` candy meshes in the shared `TREAT_COLORS` palette fill the globe from multiple viewing angles. A successful dispense selects a random palette color for the held treat and triggers a 0.7-second damped jostle; no React state is used for animation.
 - `aria-label` on the group mesh: `"Treat dispenser — click to get a treat"`.
 
 The component reads `heldTreat` from `useTreatContext()`. Because the component lives inside the R3F Canvas, it accesses the context directly via `useContext`.
@@ -156,7 +161,7 @@ R3F component. Renders one small faceted sphere for every entry in `worldTreats`
 ```tsx
 // Geometry:
 // <sphereGeometry args={[0.14, 5, 4]} />   (very low-poly, PS1-style)
-// MeshLambertMaterial color={TREAT_COLOR}
+// MeshLambertMaterial color={treat.color}
 // castShadow
 
 // Animations (useFrame):
@@ -249,8 +254,10 @@ The treat-related context values are read unconditionally (not gated on `found`)
       className="bg-sanctuary-dark/80 border border-sanctuary-amber/40 px-3 py-2 rounded font-pixel text-lg text-sanctuary-amber"
       onClick={() => dropTreat(playerPos, playerForward)}
       onPointerDown={() => { /* duplicate for mobile */ }}
+      style={{ color: heldTreat, borderColor: heldTreat }}
     >
       🍬
+      <span className="treat-color-swatch" style={{ backgroundColor: heldTreat }} />
     </button>
     <span className="font-pixel text-sanctuary-dust/70 text-xs">
       {isDesktop ? 'F to drop' : 'Tap to drop'}
@@ -334,17 +341,18 @@ export default function App() {
 
 ```ts
 interface TreatState {
-  heldTreat: boolean
+  heldTreat: TreatColor | null
   worldTreats: Array<{
     id: number
     position: THREE.Vector3
+    color: TreatColor
     claimedBy: string | null
   }>
 }
 
 // Initial state (also reset on every page load)
 const initialState: TreatState = {
-  heldTreat: false,
+  heldTreat: null,
   worldTreats: [],
 }
 ```
@@ -401,7 +409,7 @@ The Treat Dispenser feature is primarily composed of UI rendering, React state t
 
 ### Dispenser interaction while hands full
 
-`TreatDispenser` displays an inline `<Billboard>` tooltip ("Hands full! 🐾") for 1.5 seconds when the player interacts while `heldTreat === true`. The tooltip uses `useRef` + `useFrame` countdown — no React state timer.
+`TreatDispenser` displays an inline `<Billboard>` tooltip ("Hands full! 🐾") for 1.5 seconds when the player interacts while `heldTreat !== null`. The tooltip uses `useRef` + `useFrame` countdown — no React state timer.
 
 ### Cat claim lost mid-EAT
 
@@ -409,7 +417,7 @@ If a cat's target treat disappears or its `claimedBy` changes away from this cat
 
 ### Drop with no treat held
 
-`dropTreat()` checks `heldTreat === true` before mutating state. If called without a held treat (e.g., if the F-key fires between a state update and the next render), it silently no-ops.
+`dropTreat()` checks `heldTreat !== null` before mutating state. If called without a held treat (e.g., if the F-key fires between a state update and the next render), it silently no-ops.
 
 ### Page reload / session loss
 
@@ -443,10 +451,10 @@ Each test generates 100+ random inputs via `fc.record` / `fc.float` / `fc.string
 
 | Area | What to test |
 | --- | --- |
-| `TreatContext` | `dispenseTreat` idempotency, `dropTreat` guard (no treat held → no-op), append while other treats exist, per-treat claim/consume guards, pickup removes only the selected unclaimed treat, initial state reset |
+| `TreatContext` | `dispenseTreat` chooses a palette color, drop/pickup preserve it, `dropTreat` guard, append while other treats exist, per-treat claim/consume guards, pickup removes only the selected treat, initial state reset |
 | `TreatDispenser` | Renders without error; material type is `MeshLambertMaterial`; both `onClick` and `onPointerDown` props present; tooltip appears when heldTreat is true |
 | `WorldTreat` | Renders one mesh per `worldTreats` entry; each mesh has `castShadow`, independent bob animation, and id-specific pickup |
-| `HUD` TreatHUD section | Icon + label appear when `heldTreat=true`, absent when false; label text is "F to drop" on desktop, "Tap to drop" on touch; aria-label is present |
+| `HUD` TreatHUD section | Icon + matching color swatch and label appear when `heldTreat` has a color, absent when null; label text is "F to drop" on desktop, "Tap to drop" on touch; aria-label is present |
 | `Cat` EAT state | Claims nearest unclaimed treat; consumes only its target; each consumed treat increases root scale by 0.1 and its contribution returns to zero after 20 seconds, including the hitbox |
 
 ### Integration Tests

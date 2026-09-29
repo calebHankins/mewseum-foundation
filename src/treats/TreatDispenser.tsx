@@ -2,8 +2,38 @@ import { useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { Billboard, Text } from '@react-three/drei'
 import type { ThreeEvent } from '@react-three/fiber'
+import * as THREE from 'three'
 import { useTreatContext } from './TreatContext'
-import { DISPENSER_BASE_COLOR, DISPENSER_GLOBE_COLOR } from './treatData'
+import { DISPENSER_BASE_COLOR, DISPENSER_GLOBE_COLOR, TREAT_COLORS } from './treatData'
+import type { TreatColor } from './treatData'
+
+interface CandySpec {
+  position: [number, number, number]
+  phase: number
+  color: TreatColor
+}
+
+const CANDY_COUNT = 40
+const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5))
+const CANDIES: CandySpec[] = Array.from({ length: CANDY_COUNT }, (_, index) => {
+  const vertical = 1 - 2 * ((index + 0.5) / CANDY_COUNT)
+  const horizontalRadius = Math.sqrt(1 - vertical * vertical)
+  const directionAngle = index * GOLDEN_ANGLE
+  const radialIndex = (index * 17) % CANDY_COUNT
+  const radius = 0.39 * Math.cbrt((radialIndex + 0.5) / CANDY_COUNT)
+
+  return {
+    position: [
+      Math.cos(directionAngle) * horizontalRadius * radius,
+      vertical * radius,
+      Math.sin(directionAngle) * horizontalRadius * radius,
+    ],
+    phase: index * 0.91,
+    color: TREAT_COLORS[index % TREAT_COLORS.length],
+  }
+})
+
+const CANDY_JOSTLE_DURATION = 0.7
 
 export default function TreatDispenser() {
   const { heldTreat, dispenseTreat } = useTreatContext()
@@ -11,11 +41,37 @@ export default function TreatDispenser() {
   const [showHandsFull, setShowHandsFull] = useState(false)
   const tooltipTimer = useRef(0)
   const lastPointerDown = useRef(0)
+  const candyRefs = useRef<Array<THREE.Mesh | null>>([])
+  const jostleElapsed = useRef<number | null>(null)
 
   useFrame((_, delta) => {
-    if (tooltipTimer.current <= 0) return
-    tooltipTimer.current = Math.max(0, tooltipTimer.current - delta)
-    if (tooltipTimer.current === 0) setShowHandsFull(false)
+    if (tooltipTimer.current > 0) {
+      tooltipTimer.current = Math.max(0, tooltipTimer.current - delta)
+      if (tooltipTimer.current === 0) setShowHandsFull(false)
+    }
+
+    if (jostleElapsed.current === null) return
+    const elapsed = jostleElapsed.current + delta
+    jostleElapsed.current = elapsed
+    const remaining = Math.max(0, 1 - elapsed / CANDY_JOSTLE_DURATION)
+    CANDIES.forEach((candy, index) => {
+      const mesh = candyRefs.current[index]
+      if (!mesh) return
+      const phase = elapsed * 26 + candy.phase
+      mesh.position.x = candy.position[0] + Math.sin(phase) * 0.045 * remaining
+      mesh.position.y = candy.position[1] + Math.cos(phase * 0.83) * 0.04 * remaining
+      mesh.position.z = candy.position[2] + Math.sin(phase * 0.67) * 0.035 * remaining
+      mesh.rotation.set(phase * 0.12, phase * 0.18, Math.cos(phase) * 0.3 * remaining)
+    })
+    if (remaining === 0) {
+      CANDIES.forEach((candy, index) => {
+        const mesh = candyRefs.current[index]
+        if (!mesh) return
+        mesh.position.set(candy.position[0], candy.position[1], candy.position[2])
+        mesh.rotation.set(0, 0, 0)
+      })
+      jostleElapsed.current = null
+    }
   })
 
   function interact(event: ThreeEvent<PointerEvent | MouseEvent>) {
@@ -32,6 +88,7 @@ export default function TreatDispenser() {
       return
     }
     dispenseTreat()
+    jostleElapsed.current = 0
   }
 
   return (
@@ -56,8 +113,24 @@ export default function TreatDispenser() {
           color={DISPENSER_GLOBE_COLOR}
           emissive="#D4955A"
           emissiveIntensity={hovered ? 0.3 : 0}
+          transparent
+          opacity={0.32}
+          depthWrite={false}
         />
       </mesh>
+      <group position={[0, 1.65, 0]}>
+        {CANDIES.map((candy, index) => (
+          <mesh
+            key={index}
+            ref={mesh => { candyRefs.current[index] = mesh }}
+            position={candy.position}
+            castShadow
+          >
+            <sphereGeometry args={[0.075, 5, 4]} />
+            <meshLambertMaterial color={candy.color} />
+          </mesh>
+        ))}
+      </group>
       <mesh position={[0, 0.48, 0.48]} castShadow>
         <boxGeometry args={[0.18, 0.06, 0.1]} />
         <meshLambertMaterial color="#A77A52" />

@@ -4,7 +4,7 @@ import type { ThreeEvent } from '@react-three/fiber'
 import * as THREE from 'three'
 import { useTreatContext } from './TreatContext'
 import type { WorldTreatState } from './TreatContext'
-import { DROP_ANIM_DURATION, TREAT_BOB_AMPLITUDE, TREAT_COLOR } from './treatData'
+import { DROP_ANIM_DURATION, TREAT_ACCENT, TREAT_BOB_AMPLITUDE } from './treatData'
 
 interface WorldTreatMeshProps {
   treat: WorldTreatState
@@ -44,7 +44,7 @@ function WorldTreatMesh({ treat, heldTreat, pickupTreat }: WorldTreatMeshProps) 
       onPointerOut={() => setHovered(false)}
     >
       <sphereGeometry args={[0.14, 5, 4]} />
-      <meshLambertMaterial color={hovered && !heldTreat && treat.claimedBy === null ? '#A77A52' : TREAT_COLOR} />
+      <meshLambertMaterial color={hovered && !heldTreat && treat.claimedBy === null ? TREAT_ACCENT : treat.color} />
     </mesh>
   )
 }
@@ -58,7 +58,7 @@ export default function WorldTreat() {
         <WorldTreatMesh
           key={treat.id}
           treat={treat}
-          heldTreat={heldTreat}
+          heldTreat={heldTreat !== null}
           pickupTreat={pickupTreat}
         />
       ))}
