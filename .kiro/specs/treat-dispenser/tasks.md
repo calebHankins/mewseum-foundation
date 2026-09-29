@@ -10,7 +10,7 @@ Implementation follows the key order: foundation → scene objects → cat EAT s
 
 - [x] 1. Foundation — constants, player state module, and TreatContext
   - [x] 1.1 Create `src/treats/treatData.ts` with all shared constants
-    - Export `TREAT_DETECTION_RADIUS = 3.5`, `TREAT_REACH_DISTANCE = 0.4`, `DROP_FORWARD_OFFSET = 1.5`, `TREAT_REST_HEIGHT = 0.19`
+    - Export `TREAT_DETECTION_RADIUS = 3.5`, `TREAT_REACH_DISTANCE = 0.4`, `DROP_FORWARD_OFFSET = 1.5`, `TREAT_REST_HEIGHT = 0.19`, `CAT_TREAT_SCALE_INCREASE = 0.1`, `CAT_TREAT_DIGESTION_DURATION = 20`
     - Export color constants: `TREAT_COLOR`, `TREAT_ACCENT`, `DISPENSER_GLOBE_COLOR`, `DISPENSER_BASE_COLOR`
     - _Requirements: 1.1, 3.1, 4.2, 4.5_
 
@@ -102,6 +102,11 @@ Implementation follows the key order: foundation → scene objects → cat EAT s
     - When `distance <= TREAT_REACH_DISTANCE`: call `consumeTreat(def.id, treat.id)`, trigger the pet-style reaction, and enter `COOLDOWN`
     - _Requirements: 4.3, 4.5, 4.6, 5.1, 5.2, 5.3, 5.4, 5.5_
 
+  - [x] 4.4 Grow cats when treats are consumed and digest them over time
+    - Add one digestion timer per consumed treat; each contributes 0.1 root scale and decays linearly over 20 seconds
+    - Apply the composed scale to the cat root so its model and hitbox grow together; multiply it by the existing petting pulse
+    - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5_
+
 - [x] 5. HUD extension — TreatHUD slot and F-key listener
   - [x] 5.1 Add TreatHUD section to `HUD.tsx`
     - Import `useTreatContext` and read `heldTreat`, `dropTreat`
@@ -140,7 +145,7 @@ Implementation follows the key order: foundation → scene objects → cat EAT s
   - Run `tsc --noEmit` then `npm run lint`. All TypeScript errors and ESLint warnings must be zero. Ask the user if questions arise.
 
 - [ ]* 8. Integration smoke test — full treat loop
-  - Write an integration test using `@testing-library/react` + a minimal R3F scene harness that drops multiple treats, assigns separate cat claims, consumes one, and confirms the others remain
+  - Write an integration test using `@testing-library/react` + a minimal R3F scene harness that drops multiple treats, assigns separate cat claims, consumes one, verifies growth/digestion, and confirms the others remain
   - Test F-key drop: `keydown` with `code: 'KeyF'` while `heldTreat === true` calls `dropTreat`
   - Test tap drop: `pointerdown` on TreatHUD icon calls `dropTreat`
   - Test pickup: clicking one unclaimed WorldTreat removes only its id when others remain

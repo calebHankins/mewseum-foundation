@@ -231,6 +231,8 @@ const { worldTreats, claimTreat, consumeTreat } = useTreatContext()
 
 The treat-related context values are read unconditionally (not gated on `found`) so the hook call order is stable. The `EAT` state logic below only acts when `found` is true, matching the guard that already exists for all other cat behavior.
 
+**Treat growth and digestion:** Each successful treat consumption adds a digestion timer with a remaining fraction of `1`. On each `useFrame`, the fraction decays linearly over `CAT_TREAT_DIGESTION_DURATION` (20 seconds). The sum of active fractions multiplies `CAT_TREAT_SCALE_INCREASE` (0.1) and is added to the root group scale. Since the cat model and invisible hitbox are children of the root group, both grow together. The petting pulse multiplies this growth scale; it never resets the group to `1` while treats are digesting.
+
 ---
 
 ### `src/ui/HUD.tsx` — modifications
@@ -445,7 +447,7 @@ Each test generates 100+ random inputs via `fc.record` / `fc.float` / `fc.string
 | `TreatDispenser` | Renders without error; material type is `MeshLambertMaterial`; both `onClick` and `onPointerDown` props present; tooltip appears when heldTreat is true |
 | `WorldTreat` | Renders one mesh per `worldTreats` entry; each mesh has `castShadow`, independent bob animation, and id-specific pickup |
 | `HUD` TreatHUD section | Icon + label appear when `heldTreat=true`, absent when false; label text is "F to drop" on desktop, "Tap to drop" on touch; aria-label is present |
-| `Cat` EAT state | Claims nearest unclaimed treat; only one cat can claim a treat id; bails to IDLE if its target disappears; consumes only its target at reach distance |
+| `Cat` EAT state | Claims nearest unclaimed treat; consumes only its target; each consumed treat increases root scale by 0.1 and its contribution returns to zero after 20 seconds, including the hitbox |
 
 ### Integration Tests
 

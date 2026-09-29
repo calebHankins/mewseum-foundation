@@ -7,7 +7,12 @@ import { useAudioContext } from '../audio/AudioContext'
 import { playMeow } from '../audio/meow'
 import { useTreatContext } from '../treats/TreatContext'
 import type { WorldTreatState } from '../treats/TreatContext'
-import { TREAT_DETECTION_RADIUS, TREAT_REACH_DISTANCE } from '../treats/treatData'
+import {
+  CAT_TREAT_DIGESTION_DURATION,
+  CAT_TREAT_SCALE_INCREASE,
+  TREAT_DETECTION_RADIUS,
+  TREAT_REACH_DISTANCE,
+} from '../treats/treatData'
 import type { CatDef } from './catData'
 import { CAT_REGISTRY } from './catData'
 
@@ -84,6 +89,7 @@ export default function Cat({ def }: CatProps) {
   // Idle breathing oscillation
   const idlePhaseRef = useRef(Math.random() * Math.PI * 2)
   const wanderTimerRef = useRef(0)
+  const treatDigestionRef = useRef<number[]>([])
 
   // Use the shared module-level registry
   const ownCatId = def.id
@@ -117,6 +123,19 @@ export default function Cat({ def }: CatProps) {
 
     idlePhaseRef.current += delta * IDLE_SPEED
 
+    let activeTreatGrowth = 0
+    for (let index = treatDigestionRef.current.length - 1; index >= 0; index -= 1) {
+      const remaining = treatDigestionRef.current[index] - delta / CAT_TREAT_DIGESTION_DURATION
+      if (remaining <= 0) {
+        treatDigestionRef.current.splice(index, 1)
+      } else {
+        treatDigestionRef.current[index] = remaining
+        activeTreatGrowth += remaining
+      }
+    }
+    const growthScale = 1 + activeTreatGrowth * CAT_TREAT_SCALE_INCREASE
+    group.scale.setScalar(growthScale)
+
     // Idle breathing: subtle Y scale oscillation
     const breath = 1 + Math.sin(idlePhaseRef.current) * 0.015
     if (!petting) body.scale.setScalar(breath)
@@ -125,12 +144,12 @@ export default function Cat({ def }: CatProps) {
     if (petting) {
       const t = petTimer / PET_DURATION
       const pulse = 1 + Math.sin(t * Math.PI) * 0.18
-      group.scale.setScalar(pulse)
+      group.scale.setScalar(growthScale * pulse)
       setPetTimer(prev => {
         const next = prev + delta
         if (next >= PET_DURATION) {
           setPetting(false)
-          group.scale.setScalar(1)
+          group.scale.setScalar(growthScale)
         }
         return next
       })
@@ -391,6 +410,7 @@ export default function Cat({ def }: CatProps) {
 
           if (distance <= TREAT_REACH_DISTANCE) {
             consumeTreat(def.id, targetTreat.id)
+            treatDigestionRef.current.push(1)
             setPetting(true)
             setPetTimer(0)
             setShowHeart(true)

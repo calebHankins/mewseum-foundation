@@ -133,3 +133,17 @@ The Treat Dispenser adds an interactive gumball-machine-style object to the Foun
 2. WHEN the player picks up a WorldTreat, THE TreatContext SHALL remove only that treat from the world and set `heldTreat` to true.
 3. IF the player already holds a treat or a cat has claimed the selected WorldTreat, THEN attempting to pick it up SHALL have no effect on any treat.
 4. Each WorldTreat SHALL support both `onClick` and `onPointerDown` events and expose an accessible label describing the pickup action.
+
+---
+
+### Requirement 9: Cat Treat Growth and Digestion
+
+**User Story:** As a player, I want cats to visibly grow after eating and gradually return to their normal size, so that treats have a playful, temporary effect.
+
+#### Acceptance Criteria
+
+1. WHEN a Cat consumes a treat, its root scale SHALL increase by `CAT_TREAT_SCALE_INCREASE` (0.1) for that treat.
+2. THE Cat's visible model and interaction hitbox SHALL grow together.
+3. Each treat's scale contribution SHALL linearly decay to zero over `CAT_TREAT_DIGESTION_DURATION` (20 seconds); when no contributions remain, the Cat SHALL return to its original scale.
+4. WHEN a Cat consumes multiple treats before finishing digestion, their scale contributions SHALL stack and digest independently.
+5. Treat growth SHALL compose with the existing petting scale pulse without resetting the Cat's current size.

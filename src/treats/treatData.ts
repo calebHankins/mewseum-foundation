@@ -4,6 +4,8 @@ export const DROP_FORWARD_OFFSET = 1.5
 export const TREAT_REST_HEIGHT = 0.19
 export const DROP_ANIM_DURATION = 0.3
 export const TREAT_BOB_AMPLITUDE = 0.05
+export const CAT_TREAT_SCALE_INCREASE = 0.1
+export const CAT_TREAT_DIGESTION_DURATION = 20
 
 export const TREAT_COLOR = '#D4955A'
 export const TREAT_ACCENT = '#A77A52'
