@@ -1,118 +1,84 @@
-import { useEffect, useRef } from 'react'
+import { useEffect } from 'react'
 
-/**
- * Synthesises three layered ambient tracks using the Web Audio API:
- *  1. Deep drone — two detuned oscillators + heavy low-pass filter
- *  2. Purring loop — amplitude-modulated low-frequency noise burst
- *  3. Building hum — narrow band-pass filtered white noise
- *
- * All synthesis is done at runtime; no audio files needed.
- */
+/** Plays a slow, procedurally varied pentatonic melody over a warm chord loop. */
 export function useAmbientAudio(enabled: boolean): void {
-  const ctxRef = useRef<AudioContext | null>(null)
-  const nodesRef = useRef<AudioNode[]>([])
-
   useEffect(() => {
-    if (!enabled) {
-      // Stop and clean up
-      nodesRef.current.forEach(n => {
-        try {
-          if (n instanceof OscillatorNode || n instanceof AudioBufferSourceNode) {
-            n.stop()
-          }
-        } catch {
-          // already stopped
-        }
-      })
-      nodesRef.current = []
-      if (ctxRef.current) {
-        ctxRef.current.close().catch(() => undefined)
-        ctxRef.current = null
-      }
-      return
-    }
+    if (!enabled) return
 
     const audioCtx = new AudioContext()
-    ctxRef.current = audioCtx
-    const nodes: AudioNode[] = []
-
-    // ── 1. Deep ambient drone ────────────────────────────────────────────────
     const masterGain = audioCtx.createGain()
-    masterGain.gain.setValueAtTime(0.18, audioCtx.currentTime)
+    masterGain.gain.setValueAtTime(0.5, audioCtx.currentTime)
     masterGain.connect(audioCtx.destination)
 
-    const droneFreqs = [55, 55.5, 110.2] // slightly detuned for warmth
-    droneFreqs.forEach(freq => {
-      const osc = audioCtx.createOscillator()
-      osc.type = 'sawtooth'
-      osc.frequency.setValueAtTime(freq, audioCtx.currentTime)
+    const chords = [
+      { bass: 48, notes: [60, 64, 67] }, // C
+      { bass: 45, notes: [57, 60, 64] }, // Am
+      { bass: 53, notes: [60, 65, 69] }, // F
+      { bass: 55, notes: [59, 62, 67] }, // G
+    ]
+    const pentatonicScale = [60, 62, 64, 67, 69, 72]
+    const beatDuration = 60 / 68
+    let beatIndex = 0
+    let melodyIndex = 2
+    let nextNoteTime = audioCtx.currentTime + 0.1
 
-      const filter = audioCtx.createBiquadFilter()
-      filter.type = 'lowpass'
-      filter.frequency.setValueAtTime(300, audioCtx.currentTime)
-      filter.Q.setValueAtTime(1.2, audioCtx.currentTime)
+    const midiToFrequency = (note: number) => 440 * 2 ** ((note - 69) / 12)
 
-      const gain = audioCtx.createGain()
-      gain.gain.setValueAtTime(0.12, audioCtx.currentTime)
+    const playNote = (note: number, startTime: number, duration: number, volume: number) => {
+      const oscillator = audioCtx.createOscillator()
+      const envelope = audioCtx.createGain()
+      const endTime = startTime + duration
 
-      osc.connect(filter)
-      filter.connect(gain)
-      gain.connect(masterGain)
-      osc.start()
-      nodes.push(osc)
-    })
+      oscillator.type = 'sine'
+      oscillator.frequency.setValueAtTime(midiToFrequency(note), startTime)
+      envelope.gain.setValueAtTime(0.0001, startTime)
+      envelope.gain.exponentialRampToValueAtTime(volume, startTime + 0.025)
+      envelope.gain.exponentialRampToValueAtTime(0.0001, endTime)
 
-    // ── 2. Purring loop (amplitude-modulated low noise) ──────────────────────
-    const purrBase = audioCtx.createOscillator()
-    purrBase.type = 'sine'
-    purrBase.frequency.setValueAtTime(28, audioCtx.currentTime) // sub-bass purr
-
-    const purrMod = audioCtx.createOscillator()
-    purrMod.type = 'sine'
-    purrMod.frequency.setValueAtTime(25, audioCtx.currentTime) // ~25Hz AM = purr rate
-
-    const purrGain = audioCtx.createGain()
-    purrGain.gain.setValueAtTime(0, audioCtx.currentTime)
-
-    const purrAmp = audioCtx.createGain()
-    purrAmp.gain.setValueAtTime(0.08, audioCtx.currentTime)
-
-    purrMod.connect(purrGain.gain as unknown as AudioNode)
-    purrBase.connect(purrGain)
-    purrGain.connect(purrAmp)
-    purrAmp.connect(masterGain)
-    purrBase.start()
-    purrMod.start()
-    nodes.push(purrBase, purrMod)
-
-    // ── 3. Building hum (filtered white noise) ───────────────────────────────
-    const bufferSize = audioCtx.sampleRate * 2
-    const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate)
-    const data = noiseBuffer.getChannelData(0)
-    for (let i = 0; i < bufferSize; i++) {
-      data[i] = Math.random() * 2 - 1
+      oscillator.connect(envelope)
+      envelope.connect(masterGain)
+      oscillator.onended = () => {
+        oscillator.disconnect()
+        envelope.disconnect()
+      }
+      oscillator.start(startTime)
+      oscillator.stop(endTime + 0.03)
     }
 
-    const noiseSource = audioCtx.createBufferSource()
-    noiseSource.buffer = noiseBuffer
-    noiseSource.loop = true
+    const scheduleNotes = () => {
+      const now = audioCtx.currentTime
+      if (nextNoteTime < now - 0.05) {
+        const skippedBeats = Math.ceil((now - 0.05 - nextNoteTime) / beatDuration)
+        beatIndex += skippedBeats
+        nextNoteTime += skippedBeats * beatDuration
+      }
 
-    const humFilter = audioCtx.createBiquadFilter()
-    humFilter.type = 'bandpass'
-    humFilter.frequency.setValueAtTime(80, audioCtx.currentTime)
-    humFilter.Q.setValueAtTime(8, audioCtx.currentTime)
+      const scheduleThrough = now + 0.12
+      while (nextNoteTime < scheduleThrough) {
+        const chord = chords[Math.floor(beatIndex / 4) % chords.length]
+        const step = Math.random()
+        const movement = step < 0.25 ? 0 : step < 0.625 ? 1 : -1
+        const nextMelodyIndex = melodyIndex + movement
+        melodyIndex = Math.max(0, Math.min(pentatonicScale.length - 1, nextMelodyIndex))
 
-    const humGain = audioCtx.createGain()
-    humGain.gain.setValueAtTime(0.04, audioCtx.currentTime)
+        if (beatIndex > 0 && beatIndex % 8 === 0) {
+          melodyIndex = Math.random() < 0.5 ? 1 : 2
+        }
 
-    noiseSource.connect(humFilter)
-    humFilter.connect(humGain)
-    humGain.connect(masterGain)
-    noiseSource.start()
-    nodes.push(noiseSource)
+        playNote(pentatonicScale[melodyIndex], nextNoteTime, beatDuration * 0.78, 0.055)
+        if (beatIndex % 4 === 0) {
+          playNote(chord.bass, nextNoteTime, beatDuration * 2.5, 0.035)
+          chord.notes.forEach(note => {
+            playNote(note, nextNoteTime, beatDuration * 1.8, 0.012)
+          })
+        }
 
-    nodesRef.current = nodes
+        beatIndex += 1
+        nextNoteTime += beatDuration
+      }
+    }
 
+    const scheduler = window.setInterval(scheduleNotes, 100)
     const resumeAudio = () => {
       if (audioCtx.state === 'suspended') {
         audioCtx.resume().catch(() => undefined)
@@ -122,17 +88,9 @@ export function useAmbientAudio(enabled: boolean): void {
     window.addEventListener('keydown', resumeAudio)
 
     return () => {
+      window.clearInterval(scheduler)
       window.removeEventListener('pointerdown', resumeAudio)
       window.removeEventListener('keydown', resumeAudio)
-      nodes.forEach(n => {
-        try {
-          if (n instanceof OscillatorNode || n instanceof AudioBufferSourceNode) {
-            n.stop()
-          }
-        } catch {
-          // already stopped
-        }
-      })
       audioCtx.close().catch(() => undefined)
     }
   }, [enabled])
