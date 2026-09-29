@@ -76,7 +76,7 @@ function Window({ position, rotation }: {
         <meshLambertMaterial color="#4A3520" />
       </mesh>
       {/* Glass — emissive warm amber */}
-      <mesh position={[0, 0, 0.06]}>
+      <mesh position={[0, 0, 0.07]}>
         <planeGeometry args={[1.8, 2.4]} />
         <meshLambertMaterial
           color={PALETTE.window}
