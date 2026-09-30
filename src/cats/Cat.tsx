@@ -63,7 +63,7 @@ export default function Cat({ def }: CatProps) {
 
   const { isCatFound, findCat } = useCatProgress()
   const { audioEnabled } = useAudioContext()
-  const { worldTreats, claimTreat, consumeTreat } = useTreatContext()
+  const { worldTreats, claimTreat, unclaimTreat, consumeTreat } = useTreatContext()
   const found = isCatFound(def.id)
 
   // Get social properties with defaults
@@ -120,13 +120,25 @@ export default function Cat({ def }: CatProps) {
     catSocialStateRegistry[ownCatId] = false
     socialSnapshotRef.current = null
     socialTimeoutRef.current = 0
+
+    if (catState === 'EAT' && targetTreatId !== null) {
+      unclaimTreat(def.id, targetTreatId)
+    }
+
     // Set cooldown state - cat will stay near player for a while
     setCatState('COOLDOWN')
     setCooldownTimer(PET_COOLDOWN)
     // Pick a target near the player
     setTargetPos(new THREE.Vector3(groupRef.current?.position.x ?? def.position[0], groupRef.current?.position.y ?? def.position[1], groupRef.current?.position.z ?? def.position[2]))
+    setTargetTreatId(null)
     console.log(`[Cat ${def.name}] Petted! Entering cooldown for ${PET_COOLDOWN}s`)
-  }, [audioEnabled, def.id, def.name, def.position, def.socialFatigue, findCat, found, ownCatId, socialTarget])
+  }, [audioEnabled, catState, def.id, def.name, def.position, def.socialFatigue, findCat, found, ownCatId, socialTarget, targetTreatId, unclaimTreat])
+
+  useEffect(() => {
+    if (catState === 'EAT' || targetTreatId === null) return
+    unclaimTreat(def.id, targetTreatId)
+    setTargetTreatId(null)
+  }, [catState, def.id, targetTreatId, unclaimTreat])
 
   useFrame((_, delta) => {
     const group = groupRef.current
@@ -241,6 +253,7 @@ export default function Cat({ def }: CatProps) {
     // ── Wandering, social, and treat behavior ─────────────────────
     if (found && !petting) {
       wanderTimerRef.current += delta
+      let claimedTreatThisFrame = false
 
       if (catState === 'IDLE' || catState === 'WANDER') {
         let nearestTreat: WorldTreatState | null = null
@@ -256,6 +269,7 @@ export default function Cat({ def }: CatProps) {
 
         if (nearestTreat) {
           claimTreat(def.id, nearestTreat.id)
+          claimedTreatThisFrame = true
           setCatState('EAT')
           setTargetTreatId(nearestTreat.id)
           setTargetPos(nearestTreat.position.clone())
@@ -263,7 +277,7 @@ export default function Cat({ def }: CatProps) {
       }
 
       // State machine for cat behavior
-      if (catState === 'IDLE') {
+      if (catState === 'IDLE' && !claimedTreatThisFrame) {
         // If in cooldown, stay close to player (current position)
         if (cooldownTimer > 0) {
           if (wanderTimerRef.current >= 2.0) {
@@ -290,7 +304,7 @@ export default function Cat({ def }: CatProps) {
             console.log(`[Cat ${def.name}] Starting wander to [${newX.toFixed(1)}, ${newZ.toFixed(1)}]`)
           }
         }
-      } else if (catState === 'WANDER') {
+      } else if (catState === 'WANDER' && !claimedTreatThisFrame) {
         // Wander for a duration, then possibly socialize
         if (wanderTimerRef.current >= WANDER_CHANGE_DIR) {
           // Check for nearby found cats using shared position registry
@@ -458,6 +472,9 @@ export default function Cat({ def }: CatProps) {
       } else if (catState === 'EAT') {
         const targetTreat = worldTreats.find(treat => treat.id === targetTreatId)
         if (!targetTreat || targetTreat.claimedBy !== def.id) {
+          if (targetTreatId !== null) {
+            unclaimTreat(def.id, targetTreatId)
+          }
           setCatState('IDLE')
           setTargetPos(null)
           setTargetTreatId(null)
