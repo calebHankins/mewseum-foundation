@@ -16,12 +16,16 @@ export interface TreatState {
   worldTreats: WorldTreatState[]
 }
 
+const TREAT_DROP_SPACING = 0.32
+const TREAT_DROP_SPIRAL_ANGLE = Math.PI * (3 - Math.sqrt(5))
+
 interface TreatContextValue extends TreatState {
   dispenseTreat: () => void
   dropTreat: (playerPos: THREE.Vector3, playerForward: THREE.Vector3) => void
   pickupTreat: (treatId: number) => void
   claimTreat: (catId: string, treatId: number) => void
   unclaimTreat: (catId: string, treatId: number) => void
+  expireClaimedTreat: (catId: string, treatId: number) => void
   consumeTreat: (catId: string, treatId: number) => void
 }
 
@@ -45,6 +49,18 @@ export function TreatProvider({ children }: { children: ReactNode }) {
     const treatId = nextTreatId.current++
     setState(current => {
       if (current.heldTreat === null) return current
+      const dropPosition = playerPos.clone().addScaledVector(playerForward, DROP_FORWARD_OFFSET)
+      let candidateIndex = 0
+      while (current.worldTreats.some(treat => treat.position.distanceTo(dropPosition) < TREAT_DROP_SPACING)) {
+        candidateIndex += 1
+        const radius = TREAT_DROP_SPACING * Math.sqrt(candidateIndex)
+        const angle = candidateIndex * TREAT_DROP_SPIRAL_ANGLE
+        dropPosition.set(
+          playerPos.x + playerForward.x * DROP_FORWARD_OFFSET + Math.cos(angle) * radius,
+          playerPos.y + playerForward.y * DROP_FORWARD_OFFSET,
+          playerPos.z + playerForward.z * DROP_FORWARD_OFFSET + Math.sin(angle) * radius,
+        )
+      }
       return {
         ...current,
         heldTreat: null,
@@ -52,7 +68,7 @@ export function TreatProvider({ children }: { children: ReactNode }) {
           ...current.worldTreats,
           {
             id: treatId,
-            position: playerPos.clone().addScaledVector(playerForward, DROP_FORWARD_OFFSET),
+            position: dropPosition,
             color: current.heldTreat,
             claimedBy: null,
           },
@@ -99,6 +115,17 @@ export function TreatProvider({ children }: { children: ReactNode }) {
     })
   }, [])
 
+  const expireClaimedTreat = useCallback((catId: string, treatId: number) => {
+    setState(current => {
+      const treat = current.worldTreats.find(candidate => candidate.id === treatId)
+      if (!treat || treat.claimedBy !== catId) return current
+      return {
+        ...current,
+        worldTreats: current.worldTreats.filter(candidate => candidate.id !== treatId),
+      }
+    })
+  }, [])
+
   const consumeTreat = useCallback((catId: string, treatId: number) => {
     setState(current => {
       const treat = current.worldTreats.find(candidate => candidate.id === treatId)
@@ -110,13 +137,14 @@ export function TreatProvider({ children }: { children: ReactNode }) {
     })
   }, [])
 
-  const value = useMemo(() => ({ ...state, dispenseTreat, dropTreat, pickupTreat, claimTreat, unclaimTreat, consumeTreat }), [
+  const value = useMemo(() => ({ ...state, dispenseTreat, dropTreat, pickupTreat, claimTreat, unclaimTreat, expireClaimedTreat, consumeTreat }), [
     state,
     dispenseTreat,
     dropTreat,
     pickupTreat,
     claimTreat,
     unclaimTreat,
+    expireClaimedTreat,
     consumeTreat,
   ])
 

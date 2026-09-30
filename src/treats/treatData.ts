@@ -1,5 +1,6 @@
 export const TREAT_DETECTION_RADIUS = 3.5
 export const TREAT_REACH_DISTANCE = 0.4
+export const TREAT_CLAIM_TIMEOUT = 15
 export const DROP_FORWARD_OFFSET = 1.5
 export const TREAT_REST_HEIGHT = 0.19
 export const DROP_ANIM_DURATION = 0.3

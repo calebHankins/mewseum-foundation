@@ -134,6 +134,12 @@ export default function Cat({ def }: CatProps) {
     console.log(`[Cat ${def.name}] Petted! Entering cooldown for ${PET_COOLDOWN}s`)
   }, [audioEnabled, catState, def.id, def.name, def.position, def.socialFatigue, findCat, found, ownCatId, socialTarget, targetTreatId, unclaimTreat])
 
+  useEffect(() => {
+    if (catState === 'EAT' || targetTreatId === null) return
+    unclaimTreat(def.id, targetTreatId)
+    setTargetTreatId(null)
+  }, [catState, def.id, targetTreatId, unclaimTreat])
+
   useFrame((_, delta) => {
     const group = groupRef.current
     const body = bodyRef.current
@@ -247,6 +253,7 @@ export default function Cat({ def }: CatProps) {
     // ── Wandering, social, and treat behavior ─────────────────────
     if (found && !petting) {
       wanderTimerRef.current += delta
+      let claimedTreatThisFrame = false
 
       if (catState === 'IDLE' || catState === 'WANDER') {
         let nearestTreat: WorldTreatState | null = null
@@ -262,6 +269,7 @@ export default function Cat({ def }: CatProps) {
 
         if (nearestTreat) {
           claimTreat(def.id, nearestTreat.id)
+          claimedTreatThisFrame = true
           setCatState('EAT')
           setTargetTreatId(nearestTreat.id)
           setTargetPos(nearestTreat.position.clone())
@@ -269,7 +277,7 @@ export default function Cat({ def }: CatProps) {
       }
 
       // State machine for cat behavior
-      if (catState === 'IDLE') {
+      if (catState === 'IDLE' && !claimedTreatThisFrame) {
         // If in cooldown, stay close to player (current position)
         if (cooldownTimer > 0) {
           if (wanderTimerRef.current >= 2.0) {
@@ -296,7 +304,7 @@ export default function Cat({ def }: CatProps) {
             console.log(`[Cat ${def.name}] Starting wander to [${newX.toFixed(1)}, ${newZ.toFixed(1)}]`)
           }
         }
-      } else if (catState === 'WANDER') {
+      } else if (catState === 'WANDER' && !claimedTreatThisFrame) {
         // Wander for a duration, then possibly socialize
         if (wanderTimerRef.current >= WANDER_CHANGE_DIR) {
           // Check for nearby found cats using shared position registry
