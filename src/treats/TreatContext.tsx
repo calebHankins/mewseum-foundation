@@ -21,6 +21,7 @@ interface TreatContextValue extends TreatState {
   dropTreat: (playerPos: THREE.Vector3, playerForward: THREE.Vector3) => void
   pickupTreat: (treatId: number) => void
   claimTreat: (catId: string, treatId: number) => void
+  unclaimTreat: (catId: string, treatId: number) => void
   consumeTreat: (catId: string, treatId: number) => void
 }
 
@@ -85,6 +86,19 @@ export function TreatProvider({ children }: { children: ReactNode }) {
     })
   }, [])
 
+  const unclaimTreat = useCallback((catId: string, treatId: number) => {
+    setState(current => {
+      const treat = current.worldTreats.find(candidate => candidate.id === treatId)
+      if (!treat || treat.claimedBy !== catId) return current
+      return {
+        ...current,
+        worldTreats: current.worldTreats.map(candidate => candidate.id === treatId
+          ? { ...candidate, claimedBy: null }
+          : candidate),
+      }
+    })
+  }, [])
+
   const consumeTreat = useCallback((catId: string, treatId: number) => {
     setState(current => {
       const treat = current.worldTreats.find(candidate => candidate.id === treatId)
@@ -96,12 +110,13 @@ export function TreatProvider({ children }: { children: ReactNode }) {
     })
   }, [])
 
-  const value = useMemo(() => ({ ...state, dispenseTreat, dropTreat, pickupTreat, claimTreat, consumeTreat }), [
+  const value = useMemo(() => ({ ...state, dispenseTreat, dropTreat, pickupTreat, claimTreat, unclaimTreat, consumeTreat }), [
     state,
     dispenseTreat,
     dropTreat,
     pickupTreat,
     claimTreat,
+    unclaimTreat,
     consumeTreat,
   ])
 

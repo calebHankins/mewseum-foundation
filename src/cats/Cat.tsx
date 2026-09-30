@@ -63,7 +63,7 @@ export default function Cat({ def }: CatProps) {
 
   const { isCatFound, findCat } = useCatProgress()
   const { audioEnabled } = useAudioContext()
-  const { worldTreats, claimTreat, consumeTreat } = useTreatContext()
+  const { worldTreats, claimTreat, unclaimTreat, consumeTreat } = useTreatContext()
   const found = isCatFound(def.id)
 
   // Get social properties with defaults
@@ -120,13 +120,19 @@ export default function Cat({ def }: CatProps) {
     catSocialStateRegistry[ownCatId] = false
     socialSnapshotRef.current = null
     socialTimeoutRef.current = 0
+
+    if (catState === 'EAT' && targetTreatId !== null) {
+      unclaimTreat(def.id, targetTreatId)
+    }
+
     // Set cooldown state - cat will stay near player for a while
     setCatState('COOLDOWN')
     setCooldownTimer(PET_COOLDOWN)
     // Pick a target near the player
     setTargetPos(new THREE.Vector3(groupRef.current?.position.x ?? def.position[0], groupRef.current?.position.y ?? def.position[1], groupRef.current?.position.z ?? def.position[2]))
+    setTargetTreatId(null)
     console.log(`[Cat ${def.name}] Petted! Entering cooldown for ${PET_COOLDOWN}s`)
-  }, [audioEnabled, def.id, def.name, def.position, def.socialFatigue, findCat, found, ownCatId, socialTarget])
+  }, [audioEnabled, catState, def.id, def.name, def.position, def.socialFatigue, findCat, found, ownCatId, socialTarget, targetTreatId, unclaimTreat])
 
   useFrame((_, delta) => {
     const group = groupRef.current
@@ -458,6 +464,9 @@ export default function Cat({ def }: CatProps) {
       } else if (catState === 'EAT') {
         const targetTreat = worldTreats.find(treat => treat.id === targetTreatId)
         if (!targetTreat || targetTreat.claimedBy !== def.id) {
+          if (targetTreatId !== null) {
+            unclaimTreat(def.id, targetTreatId)
+          }
           setCatState('IDLE')
           setTargetPos(null)
           setTargetTreatId(null)
