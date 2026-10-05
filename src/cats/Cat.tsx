@@ -1,6 +1,5 @@
 import { useRef, useState, useCallback, useEffect } from 'react'
 import { useFrame } from '@react-three/fiber'
-import { Billboard, Text } from '@react-three/drei'
 import * as THREE from 'three'
 import { useCatProgress } from '../progression/CatProgressContext'
 import { useAudioContext } from '../audio/AudioContext'
@@ -15,95 +14,37 @@ import {
 } from '../treats/treatData'
 import type { CatDef } from './catData'
 import { CAT_REGISTRY } from './catData'
-import { resolveObstacleCollision, getObstacleSteeringForce, isPositionClear } from '../player/obstacleCollision'
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Low-poly cat built from Three.js primitives.
-// Body: stretched octahedron-ish box
-// Head: smaller box
-// Ears: two pyramids (cones, 4 segments)
-// Tail: thin elongated box, angled up
-// ─────────────────────────────────────────────────────────────────────────────
+import { resolveObstacleCollision } from '../player/obstacleCollision'
+import { CatVisual } from './CatVisual'
+import {
+  catPositionsRegistry,
+  catSocialStateRegistry,
+  PET_DURATION,
+  IDLE_SPEED,
+  HEART_DURATION,
+  WANDER_SPEED,
+  ROTATION_SPEED,
+  WANDER_CHANGE_DIR,
+  SOCIAL_RADIUS,
+  SOCIAL_INTERACTION,
+  SOCIAL_TIMEOUT,
+  SOCIAL_SEPARATION_MULT,
+  PET_COOLDOWN,
+  STAY_NEAR_PLAYER_RADIUS,
+  COLLISION_RADIUS,
+  CAT_RADIUS,
+  STUCK_TIMEOUT,
+  PROGRESS_THRESHOLD,
+  computeSteerDir,
+  sampleSafeTarget,
+  isPositionClear,
+} from './catBehavior'
+import type { CatState } from './catBehavior'
 
 interface CatProps {
   def: CatDef
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Shared position registry - ALL Cat instances share this
-// ─────────────────────────────────────────────────────────────────────────────
-const catPositionsRegistry: Record<string, THREE.Vector3> = {}
-const catSocialStateRegistry: Record<string, boolean> = {}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Cat wandering and social behavior constants
-// ─────────────────────────────────────────────────────────────────────────────
-const PET_DURATION = 0.6      // seconds for scale-pulse animation
-const IDLE_SPEED = 0.8        // idle breathing cycle speed
-const HEART_DURATION = 1.2    // seconds heart stays visible
-const WANDER_SPEED = 1.8      // meters per second
-const ROTATION_SPEED = 2.5    // radians per second
-const WANDER_CHANGE_DIR = 1.5 // seconds between direction changes
-const SOCIAL_RADIUS = 3.5     // meters to consider another cat "nearby"
-const SOCIAL_INTERACTION = 2.5 // seconds social interaction lasts
-const SOCIAL_TIMEOUT = 4       // seconds before a social approach is abandoned
-const SOCIAL_SEPARATION_MULT = 4
-const PET_COOLDOWN = 8        // seconds cat stays near player after being pet
-const STAY_NEAR_PLAYER_RADIUS = 5 // meters to stay near player
-const COLLISION_RADIUS = 0.6  // meters at which cats push away from each other
-// Removed unused constants for cleaner code
-
-// ─── Obstacle-aware pathfinding ───────────────────────────────────────────────
-const CAT_RADIUS = 0.35         // must match resolveObstacleCollision call
-const AVOID_DETECT_RADIUS = 1.2 // distance at which cats begin steering around obstacles
-const STUCK_TIMEOUT = 2.5       // seconds before abandoning a target the cat can't reach
-const PROGRESS_THRESHOLD = 0.4  // metres of movement that resets the stuck timer
-
-/**
- * Return a normalised XZ steering direction from `pos` toward `target`,
- * blended with repulsion forces from any obstacles within AVOID_DETECT_RADIUS.
- * The avoidance weight of 2.5 means an obstacle at half the detection distance
- * will deflect the cat roughly 45° around it.
- */
-function computeSteerDir(pos: THREE.Vector3, target: THREE.Vector3): THREE.Vector3 {
-  const desired = new THREE.Vector3().subVectors(target, pos)
-  desired.y = 0
-  if (desired.lengthSq() < 0.0001) return new THREE.Vector3()
-  desired.normalize()
-  const avoidance = getObstacleSteeringForce(pos, AVOID_DETECT_RADIUS)
-  desired.addScaledVector(avoidance, 2.5)
-  desired.y = 0
-  const len = desired.length()
-  return len > 0.001 ? desired.divideScalar(len) : desired
-}
-
-/**
- * Sample a random wander destination near `(baseX, baseZ)` that does not
- * overlap any registered obstacle AABB.  Falls back to the base position
- * after `maxTries` failed attempts.
- */
-function sampleSafeTarget(
-  baseX: number,
-  baseZ: number,
-  rangeX: number,
-  rangeZ: number,
-  posY: number,
-  maxTries = 8,
-): THREE.Vector3 {
-  for (let i = 0; i < maxTries; i++) {
-    const x = baseX + (Math.random() - 0.5) * rangeX
-    const z = baseZ + (Math.random() - 0.5) * rangeZ
-    const candidate = new THREE.Vector3(x, posY, z)
-    if (isPositionClear(candidate, CAT_RADIUS + 0.4)) return candidate
-  }
-  return new THREE.Vector3(baseX, posY, baseZ)
-}
-// ─────────────────────────────────────────────────────────────────────────────
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Cat behavior states
-// ─────────────────────────────────────────────────────────────────────────────
-type CatState = 'IDLE' | 'WANDER' | 'SOCIAL' | 'REST' | 'COOLDOWN' | 'PUSHBACK' | 'EAT'
 
 export default function Cat({ def }: CatProps) {
   const groupRef = useRef<THREE.Group>(null)
@@ -664,9 +605,6 @@ export default function Cat({ def }: CatProps) {
     }
   })
 
-  const bodyColor = def.color
-  const accentColor = def.accentColor
-
   // Unfound cats are translucent until found for the first time
   const opacity = found ? 1 : 0.0
   if (!found) return null   // hidden until found
@@ -680,104 +618,15 @@ export default function Cat({ def }: CatProps) {
       onPointerOver={() => setHovered(true)}
       onPointerOut={() => setHovered(false)}
     >
-      {/* ── Invisible Unified Hitbox ───────────────────────────── */}
-      <mesh position={[0, 0.6, 0]}>
-        <boxGeometry args={[1.8, 1.5, 2.0]} />
-        <meshBasicMaterial transparent opacity={0} colorWrite={false} depthWrite={false} />
-      </mesh>
-
-      {/* ── Body ─────────────────────────────────── */}
-      <mesh ref={bodyRef} position={[0, 0.38, 0]} castShadow>
-        <boxGeometry args={[0.55, 0.42, 0.72]} />
-        <meshLambertMaterial color={bodyColor} opacity={opacity} transparent={opacity < 1} />
-      </mesh>
-
-      {/* ── Head ─────────────────────────────────── */}
-      <mesh position={[0, 0.78, 0.22]} castShadow>
-        <boxGeometry args={[0.44, 0.38, 0.38]} />
-        <meshLambertMaterial color={bodyColor} />
-      </mesh>
-
-      {/* ── Ears (low-poly cones, 4 segments) ─────── */}
-      <mesh position={[-0.14, 1.06, 0.22]} castShadow>
-        <coneGeometry args={[0.1, 0.18, 4]} />
-        <meshLambertMaterial color={accentColor} />
-      </mesh>
-      <mesh position={[0.14, 1.06, 0.22]} castShadow>
-        <coneGeometry args={[0.1, 0.18, 4]} />
-        <meshLambertMaterial color={accentColor} />
-      </mesh>
-
-      {/* ── Tail ─────────────────────────────────── */}
-      <mesh position={[0, 0.55, -0.46]} rotation={[0.5, 0, 0.15]} castShadow>
-        <boxGeometry args={[0.1, 0.55, 0.1]} />
-        <meshLambertMaterial color={accentColor} />
-      </mesh>
-
-      {/* ── Front paws ───────────────────────────── */}
-      <mesh position={[-0.18, 0.1, 0.24]} castShadow>
-        <boxGeometry args={[0.16, 0.18, 0.2]} />
-        <meshLambertMaterial color={accentColor} />
-      </mesh>
-      <mesh position={[0.18, 0.1, 0.24]} castShadow>
-        <boxGeometry args={[0.16, 0.18, 0.2]} />
-        <meshLambertMaterial color={accentColor} />
-      </mesh>
-
-      {/* ── Eyes (small dark boxes) ───────────────── */}
-      <mesh position={[-0.12, 0.82, 0.41]}>
-        <boxGeometry args={[0.07, 0.05, 0.02]} />
-        <meshBasicMaterial color="#1A0A0A" />
-      </mesh>
-      <mesh position={[0.12, 0.82, 0.41]}>
-        <boxGeometry args={[0.07, 0.05, 0.02]} />
-        <meshBasicMaterial color="#1A0A0A" />
-      </mesh>
-
-      {/* ── Tooltip name on hover ─────────────────── */}
-      {hovered && (
-        <Billboard position={[0, 1.4, 0]}>
-          <Text
-            fontSize={0.18}
-            color="#D4955A"
-            font={undefined}
-            anchorX="center"
-            anchorY="middle"
-            outlineWidth={0.01}
-            outlineColor="#1A1410"
-          >
-            {def.name}
-          </Text>
-        </Billboard>
-      )}
-
-      {/* ── Floating heart on pet ─────────────────── */}
-      {showHeart && (
-        <Billboard position={[0, 1.65 + heartTimer * 0.4, 0]}>
-          <Text
-            fontSize={0.32}
-            color="#D4606A"
-            anchorX="center"
-            anchorY="middle"
-          >
-            ♥
-          </Text>
-        </Billboard>
-      )}
-
-      {/* ── Friend heart during cat-to-cat interaction ───────────── */}
-      {showFriendHeart && (
-        <Billboard position={[0, 2.0, 0]}>
-          <Text
-            fontSize={0.28}
-            color="#6AD4D4"
-            anchorX="center"
-            anchorY="middle"
-          >
-            ♥
-          </Text>
-        </Billboard>
-      )}
+      <CatVisual
+        def={def}
+        bodyRef={bodyRef}
+        hovered={hovered}
+        showHeart={showHeart}
+        heartTimer={heartTimer}
+        showFriendHeart={showFriendHeart}
+        opacity={opacity}
+      />
     </group>
   )
 }
