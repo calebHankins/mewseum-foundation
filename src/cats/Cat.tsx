@@ -15,6 +15,7 @@ import {
 } from '../treats/treatData'
 import type { CatDef } from './catData'
 import { CAT_REGISTRY } from './catData'
+import { resolveObstacleCollision } from '../player/obstacleCollision'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Low-poly cat built from Three.js primitives.
@@ -227,6 +228,9 @@ export default function Cat({ def }: CatProps) {
       
       setCatPosition(new THREE.Vector3(group.position.x, group.position.y, group.position.z))
     }
+
+    // Resolve cat vs. solid obstacles (benches, pedestals)
+    resolveObstacleCollision(group.position, 0.35)
 
       // Heart countdown
     if (showHeart) {

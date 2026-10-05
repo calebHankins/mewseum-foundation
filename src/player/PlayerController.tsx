@@ -2,6 +2,7 @@ import { useRef, useEffect, useCallback } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { playerState } from './playerState'
+import { resolveObstacleCollision } from './obstacleCollision'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PlayerController
@@ -189,6 +190,9 @@ export default function PlayerController() {
       vel.current.normalize()
       camera.position.addScaledVector(vel.current, MOVE_SPEED * delta)
     }
+
+    // Resolve player vs. solid obstacles (benches, pedestals)
+    resolveObstacleCollision(camera.position, 0.4)
 
     // Apply gravity and vertical movement
     camera.position.y += velY.current * delta

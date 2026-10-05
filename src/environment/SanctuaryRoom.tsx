@@ -2,11 +2,25 @@ import { useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import type { ThreeEvent } from '@react-three/fiber'
 import * as THREE from 'three'
+import { registerObstacle } from '../player/obstacleCollision'
 
 // Room dimensions (metres, roughly)
 const ROOM_W = 20
 const ROOM_H = 4.1
 const ROOM_D = 24
+
+// ─── Register solid obstacle AABBs (called once at module evaluation) ─────────
+// Bench seat: 2.4 × 0.8; position Y is the group centre so XZ matters only.
+// We use slightly generous half-extents so the player/cats don't clip corners.
+registerObstacle([ 5,  0.3, -9], 1.2, 0.4)   // bench 1
+registerObstacle([-5,  0.3,  9], 1.2, 0.4)   // bench 2
+registerObstacle([ 0,  0.3,  9], 1.2, 0.4)   // bench 3
+// Pedestal bases: 0.8 × 0.8 boxes
+registerObstacle([ 7,  0.35, -10], 0.4, 0.4) // pedestal 0
+registerObstacle([-7,  0.35, -10], 0.4, 0.4) // pedestal 1
+registerObstacle([ 7,  0.35,  10], 0.4, 0.4) // pedestal 2
+registerObstacle([-7,  0.35,  10], 0.4, 0.4) // pedestal 3
+// ─────────────────────────────────────────────────────────────────────────────
 
 // Warm amber palette — all Lambert (unlit-ish, PS1 style)
 const PALETTE = {
