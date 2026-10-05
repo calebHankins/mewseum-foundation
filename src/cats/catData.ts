@@ -15,6 +15,7 @@ export interface CatDef {
   rotation: [number, number, number]
   color: string         // body color (hex)
   accentColor: string   // ear / paw accent
+  floating?: boolean    // keep the cat at its authored height instead of applying gravity
   socialDrive?: SocialDrive     // how eager to socialize (default: 5)
   socialFatigue?: SocialFatigue // time between social interactions (default: 15)
 }
@@ -65,6 +66,7 @@ export const CAT_REGISTRY: CatDef[] = [
     rotation: [0, -1.8, 0],
     color: '#C8B49A',
     accentColor: '#A89070',
+    floating: true,
     socialDrive: 3,
     socialFatigue: 25,
   },

@@ -135,7 +135,7 @@ export default function Cat({ def }: CatProps) {
       catState,
       delta,
       catPhysicsStateRef.current,
-      stuckTimerRef.current,
+      def.floating ?? false,
     )
     if (physicsResult.moved) {
       setCatPosition(group.position.clone())

@@ -22,6 +22,7 @@ export interface CatPhysicsState {
   verticalVelocity: number
   jumpCooldown: number
   grounded: boolean
+  obstacleContactDuration: number
 }
 
 export function createCatPhysicsState(): CatPhysicsState {
@@ -29,6 +30,7 @@ export function createCatPhysicsState(): CatPhysicsState {
     verticalVelocity: 0,
     jumpCooldown: 1.5 + Math.random() * 2,
     grounded: true,
+    obstacleContactDuration: 0,
   }
 }
 
@@ -38,7 +40,7 @@ export function applyCatPhysics(
   catState: CatState,
   delta: number,
   physics: CatPhysicsState,
-  stuckDuration: number,
+  floating: boolean,
 ): { moved: boolean; jumped: boolean } {
   const previousPosition = group.position.clone()
 
@@ -80,36 +82,57 @@ export function applyCatPhysics(
   }
 
   physics.jumpCooldown = Math.max(0, physics.jumpCooldown - delta)
-  const jumped = physics.grounded
+  if (floating) {
+    physics.verticalVelocity = 0
+    physics.grounded = true
+  } else {
+    const previousFeetY = group.position.y
+    group.position.y += physics.verticalVelocity * delta
+    physics.verticalVelocity -= CAT_GRAVITY * delta
+
+    const obstacleTop = getObstacleTopAt(group.position, CAT_RADIUS)
+    const landingY = obstacleTop !== null && previousFeetY >= obstacleTop - OBSTACLE_CONTACT_EPSILON
+      ? Math.max(0, obstacleTop)
+      : 0
+    if (
+      physics.verticalVelocity <= 0
+      && previousFeetY >= landingY - OBSTACLE_CONTACT_EPSILON
+      && group.position.y <= landingY
+    ) {
+      group.position.y = landingY
+      physics.verticalVelocity = 0
+      physics.grounded = true
+    } else {
+      physics.grounded = false
+    }
+  }
+
+  const beforeObstacleCollision = group.position.clone()
+  resolveObstacleCollision(group.position, CAT_RADIUS, group.position.y, CAT_BODY_HEIGHT)
+  const hitObstacle = Math.hypot(
+    group.position.x - beforeObstacleCollision.x,
+    group.position.z - beforeObstacleCollision.z,
+  ) > 1e-4
+
+  if (floating) {
+    physics.obstacleContactDuration = 0
+  } else if (hitObstacle && physics.grounded) {
+    physics.obstacleContactDuration += delta
+  } else {
+    physics.obstacleContactDuration = 0
+  }
+
+  const jumped = !floating
+    && physics.grounded
     && physics.jumpCooldown === 0
-    && stuckDuration >= STUCK_JUMP_DELAY
+    && physics.obstacleContactDuration >= STUCK_JUMP_DELAY
   if (jumped) {
     physics.verticalVelocity = CAT_JUMP_FORCE
     physics.jumpCooldown = 4 + Math.random() * 3
     physics.grounded = false
+    physics.obstacleContactDuration = 0
   }
 
-  const previousFeetY = group.position.y
-  group.position.y += physics.verticalVelocity * delta
-  physics.verticalVelocity -= CAT_GRAVITY * delta
-
-  const obstacleTop = getObstacleTopAt(group.position, CAT_RADIUS)
-  const landingY = obstacleTop !== null && previousFeetY >= obstacleTop - OBSTACLE_CONTACT_EPSILON
-    ? Math.max(0, obstacleTop)
-    : 0
-  if (
-    physics.verticalVelocity <= 0
-    && previousFeetY >= landingY - OBSTACLE_CONTACT_EPSILON
-    && group.position.y <= landingY
-  ) {
-    group.position.y = landingY
-    physics.verticalVelocity = 0
-    physics.grounded = true
-  } else {
-    physics.grounded = false
-  }
-
-  resolveObstacleCollision(group.position, CAT_RADIUS, group.position.y, CAT_BODY_HEIGHT)
   catPositionsRegistry[ownCatId] = group.position.clone()
 
   return {
