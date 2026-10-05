@@ -70,19 +70,19 @@ function FloatingDisplayObject({ index }: { index: number }) {
     groupRef.current.rotation.x = Math.sin(t * 1.1) * 0.08
   })
 
-  // Object 0: Crystal Geode (Warm Amber / Mystic Citrine)
+  // Object 0: Crystal Geode (Warm Emerald Green / PS1 Memory Save Crystal)
   if (index === 0) {
     return (
       <group ref={groupRef}>
-        {/* Central dual pyramid crystal */}
+        {/* Central dual pyramid crystal — classic PS1 save-point warm green */}
         <mesh castShadow>
           <octahedronGeometry args={[0.26, 0]} />
-          <meshLambertMaterial color="#E5A84B" emissive="#5C3610" emissiveIntensity={0.3} />
+          <meshLambertMaterial color="#4BB865" emissive="#124A1E" emissiveIntensity={0.35} />
         </mesh>
-        {/* Inner core accent */}
+        {/* Inner core accent — pale luminous mint */}
         <mesh>
           <octahedronGeometry args={[0.13, 0]} />
-          <meshLambertMaterial color="#FFF0B0" />
+          <meshLambertMaterial color="#B8F7C8" />
         </mesh>
       </group>
     )
