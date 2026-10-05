@@ -8,11 +8,17 @@ import { useTreatContext } from '../treats/TreatContext'
 import { TREAT_REST_HEIGHT } from '../treats/treatData'
 
 const TUTORIAL_KEY = 'mewseum_tutorial_seen'
+const HELP_KEY = 'mewseum_help_visible'
 const TOTAL_CATS = CAT_REGISTRY.length
 
 /** Returns true if this is the first visit */
 function isFirstVisit(): boolean {
   return !localStorage.getItem(TUTORIAL_KEY)
+}
+
+function isHelpVisible(): boolean {
+  const value = localStorage.getItem(HELP_KEY)
+  return value === null ? true : value === 'true'
 }
 
 export default function HUD() {
@@ -21,6 +27,7 @@ export default function HUD() {
   const { heldTreat, worldTreats, dropTreat } = useTreatContext()
   const [showTutorial, setShowTutorial] = useState(isFirstVisit)
   const [isDesktop, setIsDesktop] = useState(true)
+  const [showHelpText, setShowHelpText] = useState(isHelpVisible)
   const [reticlePosition, setReticlePosition] = useState(() => ({
     x: window.innerWidth / 2,
     y: window.innerHeight / 2,
@@ -32,6 +39,10 @@ export default function HUD() {
   useEffect(() => {
     setIsDesktop(window.matchMedia('(pointer: fine)').matches)
   }, [])
+
+  useEffect(() => {
+    localStorage.setItem(HELP_KEY, String(showHelpText))
+  }, [showHelpText])
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -109,7 +120,7 @@ export default function HUD() {
 
       {heldTreat && (
         <div
-          className="absolute bottom-14 right-4 pointer-events-auto flex flex-col items-center gap-1"
+          className={`absolute pointer-events-auto flex flex-col items-center gap-1 ${isDesktop ? 'bottom-14 right-4' : 'bottom-28 right-4'}`}
           aria-label="Held treat — press F or tap to drop"
         >
           <button
@@ -156,6 +167,14 @@ export default function HUD() {
         </button>
       )}
 
+      <button
+        className="absolute bottom-3 left-4 pointer-events-auto bg-sanctuary-dark/80 border border-sanctuary-amber/40 rounded-full w-8 h-8 flex items-center justify-center font-pixel text-sm text-sanctuary-amber shadow-lg"
+        aria-label={showHelpText ? 'Hide help text' : 'Show help text'}
+        onClick={() => setShowHelpText(value => !value)}
+      >
+        ?
+      </button>
+
       {/* ── Reticle — centre ──────────────────────────────────────────── */}
       {!showTutorial && (
         <div
@@ -165,7 +184,7 @@ export default function HUD() {
       )}
 
       {/* ── Controls hint — bottom centre ──────────────────────────────── */}
-      {!showTutorial && (
+      {!showTutorial && showHelpText && (
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2">
           <span className="font-pixel text-sanctuary-dust/50 text-xs shadow-black drop-shadow-md">
             {isDesktop ? 'Click to look · WASD to move · Click cats to pet' : 'Drag right to look · Drag left to move · Tap jump to leap · Tap cats to pet'}
