@@ -54,6 +54,6 @@ export function applyCatPhysics(
     group.position.z += collisionVector.z * WANDER_SPEED * separationMultiplier * delta
   }
 
-  resolveObstacleCollision(group.position, 0.35)
+  resolveObstacleCollision(group.position, 0.35, group.position.y, 0.5)
   return wasPushed
 }

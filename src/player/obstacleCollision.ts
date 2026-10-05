@@ -32,21 +32,20 @@ export function registerObstacle(
   center: [number, number, number],
   halfX: number,
   halfZ: number,
+  halfY: number,
   margin = 0.1,
 ): void {
   OBSTACLE_LIST.push({
-    min: new THREE.Vector3(center[0] - halfX - margin, -Infinity, center[2] - halfZ - margin),
-    max: new THREE.Vector3(center[0] + halfX + margin,  Infinity, center[2] + halfZ + margin),
+    min: new THREE.Vector3(center[0] - halfX - margin, center[1] - halfY, center[2] - halfZ - margin),
+    max: new THREE.Vector3(center[0] + halfX + margin, center[1] + halfY, center[2] + halfZ + margin),
   })
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // resolveObstacleCollision
 //
-// Given an XZ position and a radius (capsule footprint), push the position
-// out of any overlapping AABBs.  The Y axis is intentionally ignored —
-// obstacles are treated as infinite vertical columns so the check works
-// regardless of height.
+// Given a player position, footprint radius, and vertical body bounds, push
+// out of any overlapping AABBs. Obstacles can be jumped over when clear.
 //
 // Call this after applying movement each frame:
 //   resolveObstacleCollision(camera.position, PLAYER_RADIUS)
@@ -56,8 +55,15 @@ export function registerObstacle(
  * Resolve the XZ position of a circle (radius `r`) against all registered
  * obstacle AABBs.  Mutates `pos` in-place; Y is untouched.
  */
-export function resolveObstacleCollision(pos: THREE.Vector3, r: number): void {
+export function resolveObstacleCollision(
+  pos: THREE.Vector3,
+  r: number,
+  feetY: number,
+  bodyHeight: number,
+): void {
   for (const box of OBSTACLE_LIST) {
+    if (feetY >= box.max.y || feetY + bodyHeight <= box.min.y) continue
+
     // Closest point on the AABB to the circle centre (XZ plane only)
     const cx = Math.max(box.min.x, Math.min(pos.x, box.max.x))
     const cz = Math.max(box.min.z, Math.min(pos.z, box.max.z))
@@ -77,6 +83,21 @@ export function resolveObstacleCollision(pos: THREE.Vector3, r: number): void {
       pos.x += r
     }
   }
+}
+
+/** Returns the highest obstacle top overlapping the player's circular footprint. */
+export function getObstacleTopAt(pos: THREE.Vector3, r: number): number | null {
+  let highestTop: number | null = null
+  for (const box of OBSTACLE_LIST) {
+    const cx = Math.max(box.min.x, Math.min(pos.x, box.max.x))
+    const cz = Math.max(box.min.z, Math.min(pos.z, box.max.z))
+    const dx = pos.x - cx
+    const dz = pos.z - cz
+    if (dx * dx + dz * dz <= r * r && (highestTop === null || box.max.y > highestTop)) {
+      highestTop = box.max.y
+    }
+  }
+  return highestTop
 }
 
 /**

@@ -8,9 +8,8 @@ import { DISPENSER_BASE_COLOR, DISPENSER_GLOBE_COLOR, TREAT_COLORS } from './tre
 import type { TreatColor } from './treatData'
 import { registerObstacle } from '../player/obstacleCollision'
 
-// The dispenser group sits at world origin [0, 0, 0].
-// Base cylinder: top radius 0.45, bottom 0.5 → use 0.5 as footprint radius.
-registerObstacle([0, 0, 0], 0.5, 0.5)
+// The dispenser group sits at world origin; its globe reaches about 1.1m high.
+registerObstacle([0, 0.55, 0], 0.5, 0.5, 0.55)
 
 interface CandySpec {
   position: [number, number, number]

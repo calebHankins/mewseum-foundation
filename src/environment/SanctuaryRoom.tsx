@@ -10,16 +10,15 @@ const ROOM_H = 4.1
 const ROOM_D = 24
 
 // ─── Register solid obstacle AABBs (called once at module evaluation) ─────────
-// Bench seat: 2.4 × 0.8; position Y is the group centre so XZ matters only.
-// We use slightly generous half-extents so the player/cats don't clip corners.
-registerObstacle([ 5,  0.3, -9], 1.2, 0.4)   // bench 1
-registerObstacle([-5,  0.3,  9], 1.2, 0.4)   // bench 2
-registerObstacle([ 0,  0.3,  9], 1.2, 0.4)   // bench 3
-// Pedestal bases: 0.8 × 0.8 boxes
-registerObstacle([ 7,  0.35, -10], 0.4, 0.4) // pedestal 0
-registerObstacle([-7,  0.35, -10], 0.4, 0.4) // pedestal 1
-registerObstacle([ 7,  0.35,  10], 0.4, 0.4) // pedestal 2
-registerObstacle([-7,  0.35,  10], 0.4, 0.4) // pedestal 3
+// Bench bounds include the legs and seat; XZ padding helps avoid clipping corners.
+registerObstacle([ 5,  0.1, -9], 1.2, 0.4, 0.3)   // bench 1
+registerObstacle([-5,  0.1,  9], 1.2, 0.4, 0.3)   // bench 2
+registerObstacle([ 0,  0.1,  9], 1.2, 0.4, 0.3)   // bench 3
+// Pedestal bounds include the base and top trim plate.
+registerObstacle([ 7,  0.365, -10], 0.4, 0.4, 0.365) // pedestal 0
+registerObstacle([-7,  0.365, -10], 0.4, 0.4, 0.365) // pedestal 1
+registerObstacle([ 7,  0.365,  10], 0.4, 0.4, 0.365) // pedestal 2
+registerObstacle([-7,  0.365,  10], 0.4, 0.4, 0.365) // pedestal 3
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Warm amber palette — all Lambert (unlit-ish, PS1 style)
