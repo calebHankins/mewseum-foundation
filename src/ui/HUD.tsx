@@ -18,7 +18,7 @@ function isFirstVisit(): boolean {
 
 function isHelpVisible(): boolean {
   const value = localStorage.getItem(HELP_KEY)
-  return value === null ? true : value === 'true'
+  return value === null ? false : value === 'true'
 }
 
 export default function HUD() {
