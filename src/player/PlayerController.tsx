@@ -2,6 +2,11 @@ import { useRef, useEffect, useCallback } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { playerState } from './playerState'
+import {
+  getObstacleTopAt,
+  OBSTACLE_CONTACT_EPSILON,
+  resolveObstacleCollision,
+} from './obstacleCollision'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PlayerController
@@ -21,7 +26,6 @@ const BOUNDS = { x: 8.5, z: 10.5 }  // half-extents, keeps player in room
 // Physics constants for jumping
 const GRAVITY = 15.0
 const JUMP_FORCE = 6.5
-const GROUND_Y = PLAYER_HEIGHT
 
 type Keys = Record<string, boolean>
 
@@ -61,6 +65,10 @@ export default function PlayerController() {
   useEffect(() => {
     const canvas = gl.domElement
 
+    const onJumpEvent = () => {
+      handleJump()
+    }
+
     const onLockChange = () => {
       isLocked.current = document.pointerLockElement === canvas
     }
@@ -80,6 +88,7 @@ export default function PlayerController() {
     document.addEventListener('mousemove', onMouseMove)
     window.addEventListener('keydown', onKeyDown)
     window.addEventListener('keyup', onKeyUp)
+    window.addEventListener('player:jump', onJumpEvent)
     canvas.addEventListener('click', requestLock)
 
     return () => {
@@ -87,6 +96,7 @@ export default function PlayerController() {
       document.removeEventListener('mousemove', onMouseMove)
       window.removeEventListener('keydown', onKeyDown)
       window.removeEventListener('keyup', onKeyUp)
+      window.removeEventListener('player:jump', onJumpEvent)
       canvas.removeEventListener('click', requestLock)
     }
   }, [gl, requestLock, handleJump])
@@ -190,18 +200,37 @@ export default function PlayerController() {
       camera.position.addScaledVector(vel.current, MOVE_SPEED * delta)
     }
 
+    const previousFeetY = camera.position.y - PLAYER_HEIGHT
+
     // Apply gravity and vertical movement
     camera.position.y += velY.current * delta
     velY.current -= GRAVITY * delta
 
-    // Ground collision
-    if (camera.position.y <= GROUND_Y) {
-      camera.position.y = GROUND_Y
+    // Land on obstacle tops when descending; otherwise use the room floor.
+    const obstacleTop = getObstacleTopAt(camera.position, 0.4)
+    const landingY = obstacleTop !== null && previousFeetY >= obstacleTop - OBSTACLE_CONTACT_EPSILON
+      ? Math.max(0, obstacleTop)
+      : 0
+    const feetY = camera.position.y - PLAYER_HEIGHT
+    if (
+      velY.current <= 0
+      && previousFeetY >= landingY - OBSTACLE_CONTACT_EPSILON
+      && feetY <= landingY
+    ) {
+      camera.position.y = PLAYER_HEIGHT + landingY
       velY.current = 0
       isGrounded.current = true
     } else {
       isGrounded.current = false
     }
+
+    // Resolve sides after landing so a descending player isn't pushed off the top.
+    resolveObstacleCollision(
+      camera.position,
+      0.4,
+      camera.position.y - PLAYER_HEIGHT,
+      PLAYER_HEIGHT,
+    )
 
     // Clamp to room bounds
     camera.position.x = Math.max(-BOUNDS.x, Math.min(BOUNDS.x, camera.position.x))

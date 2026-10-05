@@ -6,6 +6,10 @@ import * as THREE from 'three'
 import { useTreatContext } from './TreatContext'
 import { DISPENSER_BASE_COLOR, DISPENSER_GLOBE_COLOR, TREAT_COLORS } from './treatData'
 import type { TreatColor } from './treatData'
+import { registerObstacle } from '../player/obstacleCollision'
+
+// The dispenser group sits at world origin; its globe reaches about 1.1m high.
+registerObstacle([0, 0.55, 0], 0.5, 0.5, 0.55)
 
 interface CandySpec {
   position: [number, number, number]

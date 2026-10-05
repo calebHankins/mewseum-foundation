@@ -82,6 +82,10 @@ export default function HUD() {
     setShowTutorial(false)
   }
 
+  function triggerJump() {
+    window.dispatchEvent(new CustomEvent('player:jump'))
+  }
+
   return (
     <div className="fixed inset-0 pointer-events-none select-none z-10">
 
@@ -141,6 +145,17 @@ export default function HUD() {
         {audioEnabled ? '🔊' : '🔇'}
       </button>
 
+      {!isDesktop && (
+        <button
+          className="absolute bottom-5 right-5 pointer-events-auto bg-sanctuary-amber/90 border-2 border-sanctuary-warm text-sanctuary-dark px-4 py-3 rounded-lg font-pixel text-xs shadow-lg active:scale-95 transition-transform"
+          aria-label="Jump"
+          onClick={triggerJump}
+          onPointerDown={triggerJump}
+        >
+          JUMP
+        </button>
+      )}
+
       {/* ── Reticle — centre ──────────────────────────────────────────── */}
       {!showTutorial && (
         <div
@@ -153,7 +168,7 @@ export default function HUD() {
       {!showTutorial && (
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2">
           <span className="font-pixel text-sanctuary-dust/50 text-xs shadow-black drop-shadow-md">
-            {isDesktop ? 'Click to look · WASD to move · Click cats to pet' : 'Drag right to look · Drag left to move · Tap cats to pet'}
+            {isDesktop ? 'Click to look · WASD to move · Click cats to pet' : 'Drag right to look · Drag left to move · Tap jump to leap · Tap cats to pet'}
           </span>
         </div>
       )}
@@ -173,7 +188,7 @@ export default function HUD() {
               <p className="font-pixel text-sanctuary-dust/70 text-xs leading-relaxed">
                 {isDesktop
                   ? 'Click canvas → look with mouse\nWASD or arrow keys to move\nClick a cat to pet it\nClick a frame to open a game'
-                  : 'Drag left side → move\nDrag right side → look\nTap a cat to pet it\nTap a frame to open a game'}
+                  : 'Drag left side → move\nDrag right side → look\nTap JUMP to leap\nTap a cat to pet it\nTap a frame to open a game'}
               </p>
             </div>
             <button
