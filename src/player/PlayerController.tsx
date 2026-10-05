@@ -65,6 +65,10 @@ export default function PlayerController() {
   useEffect(() => {
     const canvas = gl.domElement
 
+    const onJumpEvent = () => {
+      handleJump()
+    }
+
     const onLockChange = () => {
       isLocked.current = document.pointerLockElement === canvas
     }
@@ -84,6 +88,7 @@ export default function PlayerController() {
     document.addEventListener('mousemove', onMouseMove)
     window.addEventListener('keydown', onKeyDown)
     window.addEventListener('keyup', onKeyUp)
+    window.addEventListener('player:jump', onJumpEvent)
     canvas.addEventListener('click', requestLock)
 
     return () => {
@@ -91,6 +96,7 @@ export default function PlayerController() {
       document.removeEventListener('mousemove', onMouseMove)
       window.removeEventListener('keydown', onKeyDown)
       window.removeEventListener('keyup', onKeyUp)
+      window.removeEventListener('player:jump', onJumpEvent)
       canvas.removeEventListener('click', requestLock)
     }
   }, [gl, requestLock, handleJump])
