@@ -47,6 +47,84 @@ interface PedestalProps {
   index: number
 }
 
+function MysticStarPolyhedron() {
+  const groupRef = useRef<THREE.Group>(null)
+  const bead1Ref = useRef<THREE.Mesh>(null)
+  const bead2Ref = useRef<THREE.Mesh>(null)
+  const bead3Ref = useRef<THREE.Mesh>(null)
+  const elapsedRef = useRef(3.0)
+
+  useFrame((_, delta) => {
+    if (!groupRef.current) return
+    elapsedRef.current += delta
+    const t = elapsedRef.current
+
+    // Floating bob & star rotation
+    groupRef.current.position.y = 0.95 + Math.sin(t * 2.2) * 0.07
+    groupRef.current.rotation.y = t * 0.5
+    groupRef.current.rotation.z = Math.sin(t * 0.8) * 0.1
+
+    // Bead 1: Fast horizontal-ish close orbit (radius ~0.36)
+    if (bead1Ref.current) {
+      const a1 = t * 2.0
+      bead1Ref.current.position.set(
+        Math.cos(a1) * 0.36,
+        Math.sin(a1 * 0.5) * 0.08,
+        Math.sin(a1) * 0.36,
+      )
+    }
+
+    // Bead 2: Tilted polar orbit, medium speed, opposite direction (radius ~0.44)
+    if (bead2Ref.current) {
+      const a2 = -t * 1.4 + 1.2
+      const r = 0.44
+      bead2Ref.current.position.set(
+        Math.cos(a2) * r * 0.7,
+        Math.sin(a2) * r,
+        Math.cos(a2) * r * 0.7,
+      )
+    }
+
+    // Bead 3: Slow wide equatorial loop with vertical undulation (radius ~0.52)
+    if (bead3Ref.current) {
+      const a3 = t * 1.1 + 3.14
+      bead3Ref.current.position.set(
+        Math.sin(a3) * 0.52,
+        Math.cos(a3 * 2) * 0.14,
+        Math.cos(a3) * 0.52,
+      )
+    }
+  })
+
+  return (
+    <group ref={groupRef}>
+      {/* Central Star Core */}
+      <mesh castShadow>
+        <icosahedronGeometry args={[0.22, 0]} />
+        <meshLambertMaterial color="#5CA08E" emissive="#1D4A40" emissiveIntensity={0.25} />
+      </mesh>
+
+      {/* Orbiting Bead 1: Fast inner ring */}
+      <mesh ref={bead1Ref} castShadow>
+        <boxGeometry args={[0.065, 0.065, 0.065]} />
+        <meshLambertMaterial color="#A4E0CE" />
+      </mesh>
+
+      {/* Orbiting Bead 2: Inclined polar orbit */}
+      <mesh ref={bead2Ref} castShadow>
+        <octahedronGeometry args={[0.045, 0]} />
+        <meshLambertMaterial color="#D4F0E6" />
+      </mesh>
+
+      {/* Orbiting Bead 3: Wide gentle undulating orbit */}
+      <mesh ref={bead3Ref} castShadow>
+        <boxGeometry args={[0.055, 0.055, 0.055]} />
+        <meshLambertMaterial color="#7EC4B2" />
+      </mesh>
+    </group>
+  )
+}
+
 /**
  * 4 unique low-poly cozy gallery objects:
  * 0: Floating Crystal Geode / Gem (octahedron)
@@ -110,23 +188,9 @@ function FloatingDisplayObject({ index }: { index: number }) {
     )
   }
 
-  // Object 2: Mystic Star Polyhedron (Sage Teal / Mint)
+  // Object 2: Mystic Star Polyhedron with multi-orbit beads
   if (index === 2) {
-    return (
-      <group ref={groupRef}>
-        <mesh castShadow>
-          <icosahedronGeometry args={[0.22, 0]} />
-          <meshLambertMaterial color="#5CA08E" emissive="#1D4A40" emissiveIntensity={0.25} />
-        </mesh>
-        {/* Little satellite beads orbiting the star */}
-        {[-0.32, 0.32].map((x, i) => (
-          <mesh key={i} position={[x, 0, 0]}>
-            <boxGeometry args={[0.07, 0.07, 0.07]} />
-            <meshLambertMaterial color="#A4E0CE" />
-          </mesh>
-        ))}
-      </group>
-    )
+    return <MysticStarPolyhedron />
   }
 
   // Object 3: Antiquated Cozy Ceramic Urn / Teapot
