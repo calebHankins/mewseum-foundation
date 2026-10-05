@@ -19,6 +19,7 @@ export interface ObstacleAABB {
 
 /** Shared list of solid obstacles. Populated once at scene mount. */
 export const OBSTACLE_LIST: ObstacleAABB[] = []
+export const OBSTACLE_CONTACT_EPSILON = 1e-4
 
 /**
  * Register an axis-aligned bounding box as a solid obstacle.
@@ -62,7 +63,10 @@ export function resolveObstacleCollision(
   bodyHeight: number,
 ): void {
   for (const box of OBSTACLE_LIST) {
-    if (feetY >= box.max.y || feetY + bodyHeight <= box.min.y) continue
+    if (
+      feetY >= box.max.y - OBSTACLE_CONTACT_EPSILON
+      || feetY + bodyHeight <= box.min.y + OBSTACLE_CONTACT_EPSILON
+    ) continue
 
     // Closest point on the AABB to the circle centre (XZ plane only)
     const cx = Math.max(box.min.x, Math.min(pos.x, box.max.x))

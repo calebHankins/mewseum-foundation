@@ -2,7 +2,11 @@ import { useRef, useEffect, useCallback } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { playerState } from './playerState'
-import { getObstacleTopAt, resolveObstacleCollision } from './obstacleCollision'
+import {
+  getObstacleTopAt,
+  OBSTACLE_CONTACT_EPSILON,
+  resolveObstacleCollision,
+} from './obstacleCollision'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PlayerController
@@ -190,9 +194,7 @@ export default function PlayerController() {
       camera.position.addScaledVector(vel.current, MOVE_SPEED * delta)
     }
 
-    // Resolve horizontal overlap only while the player's body intersects an obstacle.
     const previousFeetY = camera.position.y - PLAYER_HEIGHT
-    resolveObstacleCollision(camera.position, 0.4, previousFeetY, PLAYER_HEIGHT)
 
     // Apply gravity and vertical movement
     camera.position.y += velY.current * delta
@@ -200,17 +202,29 @@ export default function PlayerController() {
 
     // Land on obstacle tops when descending; otherwise use the room floor.
     const obstacleTop = getObstacleTopAt(camera.position, 0.4)
-    const landingY = obstacleTop !== null && previousFeetY >= obstacleTop
+    const landingY = obstacleTop !== null && previousFeetY >= obstacleTop - OBSTACLE_CONTACT_EPSILON
       ? Math.max(0, obstacleTop)
       : 0
     const feetY = camera.position.y - PLAYER_HEIGHT
-    if (velY.current <= 0 && previousFeetY >= landingY && feetY <= landingY) {
+    if (
+      velY.current <= 0
+      && previousFeetY >= landingY - OBSTACLE_CONTACT_EPSILON
+      && feetY <= landingY
+    ) {
       camera.position.y = PLAYER_HEIGHT + landingY
       velY.current = 0
       isGrounded.current = true
     } else {
       isGrounded.current = false
     }
+
+    // Resolve sides after landing so a descending player isn't pushed off the top.
+    resolveObstacleCollision(
+      camera.position,
+      0.4,
+      camera.position.y - PLAYER_HEIGHT,
+      PLAYER_HEIGHT,
+    )
 
     // Clamp to room bounds
     camera.position.x = Math.max(-BOUNDS.x, Math.min(BOUNDS.x, camera.position.x))
