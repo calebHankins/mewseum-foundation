@@ -1,5 +1,9 @@
 import * as THREE from 'three'
-import { resolveObstacleCollision } from '../player/obstacleCollision'
+import {
+  getObstacleTopAt,
+  OBSTACLE_CONTACT_EPSILON,
+  resolveObstacleCollision,
+} from '../player/obstacleCollision'
 import {
   catPositionsRegistry,
   COLLISION_RADIUS,
@@ -8,13 +12,35 @@ import {
 } from './catBehavior'
 import type { CatState } from './catBehavior'
 
+const CAT_GRAVITY = 10
+const CAT_JUMP_FORCE = 5.2
+const CAT_RADIUS = 0.35
+const CAT_BODY_HEIGHT = 0.65
+const STUCK_JUMP_DELAY = 1
+
+export interface CatPhysicsState {
+  verticalVelocity: number
+  jumpCooldown: number
+  grounded: boolean
+}
+
+export function createCatPhysicsState(): CatPhysicsState {
+  return {
+    verticalVelocity: 0,
+    jumpCooldown: 1.5 + Math.random() * 2,
+    grounded: true,
+  }
+}
+
 export function applyCatPhysics(
   group: THREE.Group,
   ownCatId: string,
   catState: CatState,
   delta: number,
-): boolean {
-  catPositionsRegistry[ownCatId] = group.position.clone()
+  physics: CatPhysicsState,
+  stuckDuration: number,
+): { moved: boolean; jumped: boolean } {
+  const previousPosition = group.position.clone()
 
   const collisionVector = new THREE.Vector3()
 
@@ -44,8 +70,7 @@ export function applyCatPhysics(
   if (group.position.z < -roomDepth / 2 + wallMargin) collisionVector.z += 1.5
   if (group.position.z > roomDepth / 2 - wallMargin) collisionVector.z -= 1.5
 
-  const wasPushed = collisionVector.length() > 0
-  if (wasPushed) {
+  if (collisionVector.length() > 0) {
     collisionVector.normalize()
     collisionVector.y = 0
 
@@ -54,6 +79,41 @@ export function applyCatPhysics(
     group.position.z += collisionVector.z * WANDER_SPEED * separationMultiplier * delta
   }
 
-  resolveObstacleCollision(group.position, 0.35, group.position.y, 0.5)
-  return wasPushed
+  physics.jumpCooldown = Math.max(0, physics.jumpCooldown - delta)
+  const jumped = physics.grounded
+    && physics.jumpCooldown === 0
+    && stuckDuration >= STUCK_JUMP_DELAY
+  if (jumped) {
+    physics.verticalVelocity = CAT_JUMP_FORCE
+    physics.jumpCooldown = 4 + Math.random() * 3
+    physics.grounded = false
+  }
+
+  const previousFeetY = group.position.y
+  group.position.y += physics.verticalVelocity * delta
+  physics.verticalVelocity -= CAT_GRAVITY * delta
+
+  const obstacleTop = getObstacleTopAt(group.position, CAT_RADIUS)
+  const landingY = obstacleTop !== null && previousFeetY >= obstacleTop - OBSTACLE_CONTACT_EPSILON
+    ? Math.max(0, obstacleTop)
+    : 0
+  if (
+    physics.verticalVelocity <= 0
+    && previousFeetY >= landingY - OBSTACLE_CONTACT_EPSILON
+    && group.position.y <= landingY
+  ) {
+    group.position.y = landingY
+    physics.verticalVelocity = 0
+    physics.grounded = true
+  } else {
+    physics.grounded = false
+  }
+
+  resolveObstacleCollision(group.position, CAT_RADIUS, group.position.y, CAT_BODY_HEIGHT)
+  catPositionsRegistry[ownCatId] = group.position.clone()
+
+  return {
+    moved: previousPosition.distanceToSquared(group.position) > 1e-8,
+    jumped,
+  }
 }

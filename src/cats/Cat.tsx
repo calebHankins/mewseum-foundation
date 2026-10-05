@@ -11,7 +11,7 @@ import {
 } from '../treats/treatData'
 import type { CatDef } from './catData'
 import { CatVisual } from './CatVisual'
-import { applyCatPhysics } from './catPhysics'
+import { applyCatPhysics, createCatPhysicsState } from './catPhysics'
 import { updateCatGrowth, updateHeartTimer } from './catAnimation'
 import { updateWanderBehavior } from './catWanderBehavior'
 import { updateSocialBehavior } from './catSocialBehavior'
@@ -67,6 +67,7 @@ export default function Cat({ def }: CatProps) {
   // Stuck-detection: how long the cat has failed to make forward progress
   const stuckTimerRef = useRef(0)
   const lastProgressPosRef = useRef<THREE.Vector3 | null>(null)
+  const catPhysicsStateRef = useRef(createCatPhysicsState())
 
   // Use the shared module-level registry
   const ownCatId = def.id
@@ -128,8 +129,20 @@ export default function Cat({ def }: CatProps) {
       setPetTimer,
     )
 
-    if (applyCatPhysics(group, ownCatId, catState, delta)) {
+    const physicsResult = applyCatPhysics(
+      group,
+      ownCatId,
+      catState,
+      delta,
+      catPhysicsStateRef.current,
+      stuckTimerRef.current,
+    )
+    if (physicsResult.moved) {
       setCatPosition(group.position.clone())
+    }
+    if (physicsResult.jumped) {
+      stuckTimerRef.current = 0
+      lastProgressPosRef.current = group.position.clone()
     }
 
       // Heart countdown
