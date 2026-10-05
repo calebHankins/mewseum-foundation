@@ -15,7 +15,7 @@ import {
 } from '../treats/treatData'
 import type { CatDef } from './catData'
 import { CAT_REGISTRY } from './catData'
-import { resolveObstacleCollision } from '../player/obstacleCollision'
+import { resolveObstacleCollision, getObstacleSteeringForce, isPositionClear } from '../player/obstacleCollision'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Low-poly cat built from Three.js primitives.
@@ -52,6 +52,53 @@ const PET_COOLDOWN = 8        // seconds cat stays near player after being pet
 const STAY_NEAR_PLAYER_RADIUS = 5 // meters to stay near player
 const COLLISION_RADIUS = 0.6  // meters at which cats push away from each other
 // Removed unused constants for cleaner code
+
+// ─── Obstacle-aware pathfinding ───────────────────────────────────────────────
+const CAT_RADIUS = 0.35         // must match resolveObstacleCollision call
+const AVOID_DETECT_RADIUS = 1.2 // distance at which cats begin steering around obstacles
+const STUCK_TIMEOUT = 2.5       // seconds before abandoning a target the cat can't reach
+const PROGRESS_THRESHOLD = 0.4  // metres of movement that resets the stuck timer
+
+/**
+ * Return a normalised XZ steering direction from `pos` toward `target`,
+ * blended with repulsion forces from any obstacles within AVOID_DETECT_RADIUS.
+ * The avoidance weight of 2.5 means an obstacle at half the detection distance
+ * will deflect the cat roughly 45° around it.
+ */
+function computeSteerDir(pos: THREE.Vector3, target: THREE.Vector3): THREE.Vector3 {
+  const desired = new THREE.Vector3().subVectors(target, pos)
+  desired.y = 0
+  if (desired.lengthSq() < 0.0001) return new THREE.Vector3()
+  desired.normalize()
+  const avoidance = getObstacleSteeringForce(pos, AVOID_DETECT_RADIUS)
+  desired.addScaledVector(avoidance, 2.5)
+  desired.y = 0
+  const len = desired.length()
+  return len > 0.001 ? desired.divideScalar(len) : desired
+}
+
+/**
+ * Sample a random wander destination near `(baseX, baseZ)` that does not
+ * overlap any registered obstacle AABB.  Falls back to the base position
+ * after `maxTries` failed attempts.
+ */
+function sampleSafeTarget(
+  baseX: number,
+  baseZ: number,
+  rangeX: number,
+  rangeZ: number,
+  posY: number,
+  maxTries = 8,
+): THREE.Vector3 {
+  for (let i = 0; i < maxTries; i++) {
+    const x = baseX + (Math.random() - 0.5) * rangeX
+    const z = baseZ + (Math.random() - 0.5) * rangeZ
+    const candidate = new THREE.Vector3(x, posY, z)
+    if (isPositionClear(candidate, CAT_RADIUS + 0.4)) return candidate
+  }
+  return new THREE.Vector3(baseX, posY, baseZ)
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Cat behavior states
@@ -97,6 +144,9 @@ export default function Cat({ def }: CatProps) {
   const socialSnapshotRef = useRef<THREE.Vector3 | null>(null)
   const partnerCooldownsRef = useRef<Map<string, number>>(new Map())
   const socialTimeoutRef = useRef(0)
+  // Stuck-detection: how long the cat has failed to make forward progress
+  const stuckTimerRef = useRef(0)
+  const lastProgressPosRef = useRef<THREE.Vector3 | null>(null)
 
   // Use the shared module-level registry
   const ownCatId = def.id
@@ -285,27 +335,30 @@ export default function Cat({ def }: CatProps) {
         // If in cooldown, stay close to player (current position)
         if (cooldownTimer > 0) {
           if (wanderTimerRef.current >= 2.0) {
-            // Stay within a small radius during cooldown
+            // Stay within a small radius during cooldown — avoid obstacles
             const maxDist = STAY_NEAR_PLAYER_RADIUS * 0.5
-            const newX = group.position.x + (Math.random() - 0.5) * maxDist
-            const newZ = group.position.z + (Math.random() - 0.5) * maxDist
-            setTargetPos(new THREE.Vector3(newX, group.position.y, newZ))
+            const target = sampleSafeTarget(
+              group.position.x, group.position.z, maxDist, maxDist, group.position.y,
+            )
+            setTargetPos(target)
+            stuckTimerRef.current = 0
+            lastProgressPosRef.current = null
             setCatState('WANDER')
             wanderTimerRef.current = 0
             console.log(`[Cat ${def.name}] Staying close during cooldown`)
           }
         } else {
-          // After a short delay, start wandering
+          // After a short delay, start wandering to a safe target
           if (wanderTimerRef.current >= 2.0) {
+            const target = sampleSafeTarget(
+              def.position[0], def.position[2], 6, 10, group.position.y,
+            )
+            setTargetPos(target)
+            stuckTimerRef.current = 0
+            lastProgressPosRef.current = null
             setCatState('WANDER')
             wanderTimerRef.current = 0
-            // Pick a random wander target
-            const wanderRangeX = 6
-            const wanderRangeZ = 10
-            const newX = def.position[0] + (Math.random() - 0.5) * wanderRangeX
-            const newZ = def.position[2] + (Math.random() - 0.5) * wanderRangeZ
-            setTargetPos(new THREE.Vector3(newX, group.position.y, newZ))
-            console.log(`[Cat ${def.name}] Starting wander to [${newX.toFixed(1)}, ${newZ.toFixed(1)}]`)
+            console.log(`[Cat ${def.name}] Starting wander to [${target.x.toFixed(1)}, ${target.z.toFixed(1)}]`)
           }
         }
       } else if (catState === 'WANDER' && !claimedTreatThisFrame) {
@@ -336,11 +389,21 @@ export default function Cat({ def }: CatProps) {
               const socialCat = CAT_REGISTRY.find(c => c.id === partnerId)
               if (socialCat) {
                 setSocialTarget(partnerId)
-                const socialSnapshot = catPositionsRegistry[partnerId].clone().add(
+                // Sample rendezvous near the partner — retry if it lands in an obstacle
+                let socialSnapshot = catPositionsRegistry[partnerId].clone().add(
                   new THREE.Vector3((Math.random() - 0.5) * 1.5, 0, (Math.random() - 0.5) * 1.5),
                 )
+                if (!isPositionClear(socialSnapshot, CAT_RADIUS + 0.4)) {
+                  socialSnapshot = sampleSafeTarget(
+                    catPositionsRegistry[partnerId].x,
+                    catPositionsRegistry[partnerId].z,
+                    2.0, 2.0, group.position.y,
+                  )
+                }
                 socialSnapshotRef.current = socialSnapshot
                 setTargetPos(socialSnapshot.clone())
+                stuckTimerRef.current = 0
+                lastProgressPosRef.current = null
                 socialTimeoutRef.current = 0
                 catSocialStateRegistry[ownCatId] = true
                 setCatState('SOCIAL')
@@ -348,50 +411,54 @@ export default function Cat({ def }: CatProps) {
                 console.log(`[Cat ${def.name}] Approaching social partner ${partnerId} (drive: ${socialDrive}, rolled: ${randomRoll.toFixed(2)})`)
               }
             } else {
-              const wanderRangeX = 6
-              const wanderRangeZ = 10
-              const newX = def.position[0] + (Math.random() - 0.5) * wanderRangeX
-              const newZ = def.position[2] + (Math.random() - 0.5) * wanderRangeZ
-              setTargetPos(new THREE.Vector3(newX, group.position.y, newZ))
+              const target = sampleSafeTarget(def.position[0], def.position[2], 6, 10, group.position.y)
+              setTargetPos(target)
+              stuckTimerRef.current = 0
+              lastProgressPosRef.current = null
               wanderTimerRef.current = 0
               console.log(`[Cat ${def.name}] Skipping social with ${partnerId} (drive: ${socialDrive}, chance: ${socialChance.toFixed(2)}, rolled: ${randomRoll.toFixed(2)})`)
             }
           } else {
-            // Pick a new random wander target
-            const wanderRangeX = 6
-            const wanderRangeZ = 10
-            const newX = def.position[0] + (Math.random() - 0.5) * wanderRangeX
-            const newZ = def.position[2] + (Math.random() - 0.5) * wanderRangeZ
-            setTargetPos(new THREE.Vector3(newX, group.position.y, newZ))
+            // Pick a new safe random wander target
+            const target = sampleSafeTarget(def.position[0], def.position[2], 6, 10, group.position.y)
+            setTargetPos(target)
+            stuckTimerRef.current = 0
+            lastProgressPosRef.current = null
             wanderTimerRef.current = 0
-            console.log(`[Cat ${def.name}] New wander target [${newX.toFixed(1)}, ${newZ.toFixed(1)}]`)
+            console.log(`[Cat ${def.name}] New wander target [${target.x.toFixed(1)}, ${target.z.toFixed(1)}]`)
           }
         }
         
-        // Move toward target
+        // Move toward target with obstacle-avoidance steering
         if (targetPos) {
-          const direction = new THREE.Vector3().subVectors(targetPos, group.position)
-          const distance = direction.length()
-          direction.normalize()
+          const distance = group.position.distanceTo(targetPos)
           
           if (distance > 0.2) {
-            // Rotate toward target
-            const targetRotation = Math.atan2(direction.x, direction.z)
-            const currentRotation = group.rotation.y
-            const rotationDiff = targetRotation - currentRotation
-            
-            // Smooth rotation (handle wrap-around)
-            let rotDiff = rotationDiff
+            // ── Stuck detection ──────────────────────────────────────
+            if (lastProgressPosRef.current === null) lastProgressPosRef.current = group.position.clone()
+            if (group.position.distanceTo(lastProgressPosRef.current) > PROGRESS_THRESHOLD) {
+              lastProgressPosRef.current = group.position.clone()
+              stuckTimerRef.current = 0
+            } else {
+              stuckTimerRef.current += delta
+              if (stuckTimerRef.current > STUCK_TIMEOUT) {
+                stuckTimerRef.current = 0
+                lastProgressPosRef.current = null
+                setCatState('IDLE')
+                setTargetPos(null)
+                wanderTimerRef.current = 0
+                console.log(`[Cat ${def.name}] Stuck — abandoning wander target`)
+                return
+              }
+            }
+            // ── Avoidance-blended steering ───────────────────────────
+            const steerDir = computeSteerDir(group.position, targetPos)
+            let rotDiff = Math.atan2(steerDir.x, steerDir.z) - group.rotation.y
             while (rotDiff > Math.PI) rotDiff -= Math.PI * 2
             while (rotDiff < -Math.PI) rotDiff += Math.PI * 2
-            
             group.rotation.y += rotDiff * ROTATION_SPEED * delta * 0.5
-            
-            // Move forward
-            group.position.x += direction.x * WANDER_SPEED * delta
-            group.position.z += direction.z * WANDER_SPEED * delta
-            
-            // Update React state for next render
+            group.position.x += steerDir.x * WANDER_SPEED * delta
+            group.position.z += steerDir.z * WANDER_SPEED * delta
             setCatPosition(new THREE.Vector3(group.position.x, group.position.y, group.position.z))
           } else {
             // Reached target, idle briefly before picking new target
@@ -411,20 +478,42 @@ export default function Cat({ def }: CatProps) {
             direction.normalize()
             
             if (distance > 0.5) {
-              const targetRotation = Math.atan2(direction.x, direction.z)
-              const currentRotation = group.rotation.y
-              const rotationDiff = targetRotation - currentRotation
-              
-              let rotDiff = rotationDiff
+              // ── Stuck detection ──────────────────────────────────────
+              if (lastProgressPosRef.current === null) lastProgressPosRef.current = group.position.clone()
+              if (group.position.distanceTo(lastProgressPosRef.current) > PROGRESS_THRESHOLD) {
+                lastProgressPosRef.current = group.position.clone()
+                stuckTimerRef.current = 0
+              } else {
+                stuckTimerRef.current += delta
+                if (stuckTimerRef.current > STUCK_TIMEOUT) {
+                  stuckTimerRef.current = 0
+                  lastProgressPosRef.current = null
+                  catSocialStateRegistry[ownCatId] = false
+                  if (socialTarget) partnerCooldownsRef.current.set(socialTarget, def.socialFatigue ?? 15)
+                  setCatState('IDLE')
+                  setSocialTarget(null)
+                  socialSnapshotRef.current = null
+                  socialTimeoutRef.current = 0
+                  setTargetPos(null)
+                  setInteractionTimer(0)
+                  setShowFriendHeart(false)
+                  wanderTimerRef.current = 0
+                  console.log(`[Cat ${def.name}] Stuck approaching social partner — giving up`)
+                  return
+                }
+              }
+              // ── Avoidance-blended steering ───────────────────────────
+              const steerDir = computeSteerDir(group.position, socialSnapshotRef.current)
+              let rotDiff = Math.atan2(steerDir.x, steerDir.z) - group.rotation.y
               while (rotDiff > Math.PI) rotDiff -= Math.PI * 2
               while (rotDiff < -Math.PI) rotDiff += Math.PI * 2
-              
               group.rotation.y += rotDiff * ROTATION_SPEED * delta
-              group.position.x += direction.x * (WANDER_SPEED * 0.7) * delta
-              group.position.z += direction.z * (WANDER_SPEED * 0.7) * delta
+              group.position.x += steerDir.x * (WANDER_SPEED * 0.7) * delta
+              group.position.z += steerDir.z * (WANDER_SPEED * 0.7) * delta
               
               // Update React state for next render
               setCatPosition(new THREE.Vector3(group.position.x, group.position.y, group.position.z))
+
             } else {
               // Reached social partner - interact briefly
               setInteractionTimer(prev => {
@@ -523,39 +612,47 @@ export default function Cat({ def }: CatProps) {
           return next
         })
         
-        // During cooldown, stay near the player's last known position
-        // The player's position is not directly available here, so we use a simple
-        // random wander near current position to simulate staying close
+        // During cooldown, stay near the player's last known position — avoid obstacles
         if (wanderTimerRef.current >= 1.0) {
-          // Pick a target within STAY_NEAR_PLAYER_RADIUS
           const maxDist = STAY_NEAR_PLAYER_RADIUS
-          const newX = group.position.x + (Math.random() - 0.5) * maxDist * 0.8
-          const newZ = group.position.z + (Math.random() - 0.5) * maxDist * 0.8
-          setTargetPos(new THREE.Vector3(newX, group.position.y, newZ))
+          const target = sampleSafeTarget(
+            group.position.x, group.position.z, maxDist * 0.8, maxDist * 0.8, group.position.y,
+          )
+          setTargetPos(target)
+          stuckTimerRef.current = 0
+          lastProgressPosRef.current = null
           wanderTimerRef.current = 0
         }
         
-        // Move toward target
+        // Move toward target with obstacle-avoidance steering
         if (targetPos) {
-          const direction = new THREE.Vector3().subVectors(targetPos, group.position)
-          const distance = direction.length()
-          direction.normalize()
+          const distance = group.position.distanceTo(targetPos)
           
           if (distance > 0.3) {
-            // Rotate toward target
-            const targetRotation = Math.atan2(direction.x, direction.z)
-            const currentRotation = group.rotation.y
-            const rotationDiff = targetRotation - currentRotation
-            
-            let rotDiff = rotationDiff
+            // ── Stuck detection ──────────────────────────────────────
+            if (lastProgressPosRef.current === null) lastProgressPosRef.current = group.position.clone()
+            if (group.position.distanceTo(lastProgressPosRef.current) > PROGRESS_THRESHOLD) {
+              lastProgressPosRef.current = group.position.clone()
+              stuckTimerRef.current = 0
+            } else {
+              stuckTimerRef.current += delta
+              if (stuckTimerRef.current > STUCK_TIMEOUT) {
+                stuckTimerRef.current = 0
+                lastProgressPosRef.current = null
+                setCatState('IDLE')
+                setTargetPos(null)
+                wanderTimerRef.current = 0
+                return
+              }
+            }
+            // ── Avoidance-blended steering ───────────────────────────
+            const steerDir = computeSteerDir(group.position, targetPos)
+            let rotDiff = Math.atan2(steerDir.x, steerDir.z) - group.rotation.y
             while (rotDiff > Math.PI) rotDiff -= Math.PI * 2
             while (rotDiff < -Math.PI) rotDiff += Math.PI * 2
-            
             group.rotation.y += rotDiff * ROTATION_SPEED * delta * 0.4
-            group.position.x += direction.x * (WANDER_SPEED * 0.5) * delta
-            group.position.z += direction.z * (WANDER_SPEED * 0.5) * delta
-            
-            // Update React state for next render
+            group.position.x += steerDir.x * (WANDER_SPEED * 0.5) * delta
+            group.position.z += steerDir.z * (WANDER_SPEED * 0.5) * delta
             setCatPosition(new THREE.Vector3(group.position.x, group.position.y, group.position.z))
           } else {
             // Reached target, idling briefly before picking new target

@@ -78,3 +78,45 @@ export function resolveObstacleCollision(pos: THREE.Vector3, r: number): void {
     }
   }
 }
+
+/**
+ * Returns a combined avoidance steering vector pointing away from any obstacle
+ * within `detectionRadius` of `pos` (XZ plane only).  Each contribution scales
+ * linearly from 1 (touching the AABB surface) to 0 (at the detection boundary).
+ * Add the result to a desired-direction vector, then re-normalise.
+ */
+export function getObstacleSteeringForce(
+  pos: THREE.Vector3,
+  detectionRadius: number,
+): THREE.Vector3 {
+  const force = new THREE.Vector3()
+  for (const box of OBSTACLE_LIST) {
+    const cx = Math.max(box.min.x, Math.min(pos.x, box.max.x))
+    const cz = Math.max(box.min.z, Math.min(pos.z, box.max.z))
+    const dx = pos.x - cx
+    const dz = pos.z - cz
+    const distSq = dx * dx + dz * dz
+    if (distSq < detectionRadius * detectionRadius) {
+      const dist = Math.sqrt(distSq) || 0.001
+      const weight = 1 - dist / detectionRadius
+      force.x += (dx / dist) * weight
+      force.z += (dz / dist) * weight
+    }
+  }
+  return force
+}
+
+/**
+ * Returns true if the circular footprint (radius `r`, centred at `pos` in XZ)
+ * does not overlap any registered obstacle AABB.
+ */
+export function isPositionClear(pos: THREE.Vector3, r: number): boolean {
+  for (const box of OBSTACLE_LIST) {
+    const cx = Math.max(box.min.x, Math.min(pos.x, box.max.x))
+    const cz = Math.max(box.min.z, Math.min(pos.z, box.max.z))
+    const dx = pos.x - cx
+    const dz = pos.z - cz
+    if (dx * dx + dz * dz < r * r) return false
+  }
+  return true
+}
