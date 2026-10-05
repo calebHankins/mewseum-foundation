@@ -1,4 +1,5 @@
-import { useMemo } from 'react'
+import { useMemo, useRef } from 'react'
+import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 
 // Room dimensions (metres, roughly)
@@ -41,24 +42,136 @@ function Bench({ position }: { position: [number, number, number] }) {
   )
 }
 
-/** A low-poly square planter */
-function Planter({ position }: { position: [number, number, number] }) {
+interface PedestalProps {
+  position: [number, number, number]
+  index: number
+}
+
+/**
+ * 4 unique low-poly cozy gallery objects:
+ * 0: Floating Crystal Geode / Gem (octahedron)
+ * 1: Cozy Yarn Ball with small needles (sphere + crossed rods)
+ * 2: Ancient Star Relic / Prism (icosahedron / 12-sided low poly star)
+ * 3: Low-poly Teapot / Urn (cylinder bowl + lid + spout + handle)
+ */
+function FloatingDisplayObject({ index }: { index: number }) {
+  const groupRef = useRef<THREE.Group>(null)
+  const elapsedRef = useRef(index * 1.5) // staggered initial phase
+
+  useFrame((_, delta) => {
+    if (!groupRef.current) return
+    elapsedRef.current += delta
+    const t = elapsedRef.current
+
+    // Bobbing motion similar to treats (Math.sin(t * Math.PI) * amplitude)
+    groupRef.current.position.y = 0.95 + Math.sin(t * 2.2) * 0.07
+    // Gentle rotation
+    groupRef.current.rotation.y = t * 0.75
+    groupRef.current.rotation.x = Math.sin(t * 1.1) * 0.08
+  })
+
+  // Object 0: Crystal Geode (Warm Amber / Mystic Citrine)
+  if (index === 0) {
+    return (
+      <group ref={groupRef}>
+        {/* Central dual pyramid crystal */}
+        <mesh castShadow>
+          <octahedronGeometry args={[0.26, 0]} />
+          <meshLambertMaterial color="#E5A84B" emissive="#5C3610" emissiveIntensity={0.3} />
+        </mesh>
+        {/* Inner core accent */}
+        <mesh>
+          <octahedronGeometry args={[0.13, 0]} />
+          <meshLambertMaterial color="#FFF0B0" />
+        </mesh>
+      </group>
+    )
+  }
+
+  // Object 1: Cozy Woolen Yarn Ball with knitting needles
+  if (index === 1) {
+    return (
+      <group ref={groupRef}>
+        {/* Main wool ball */}
+        <mesh castShadow>
+          <sphereGeometry args={[0.22, 6, 5]} />
+          <meshLambertMaterial color="#D96B6B" />
+        </mesh>
+        {/* Crossing knitting needles */}
+        <mesh position={[0, 0, 0]} rotation={[0.6, 0.4, 0.7]} castShadow>
+          <cylinderGeometry args={[0.018, 0.018, 0.65, 4]} />
+          <meshLambertMaterial color="#F4E0C0" />
+        </mesh>
+        <mesh position={[0, 0, 0]} rotation={[-0.5, 0.2, -0.6]} castShadow>
+          <cylinderGeometry args={[0.018, 0.018, 0.65, 4]} />
+          <meshLambertMaterial color="#F4E0C0" />
+        </mesh>
+      </group>
+    )
+  }
+
+  // Object 2: Mystic Star Polyhedron (Sage Teal / Mint)
+  if (index === 2) {
+    return (
+      <group ref={groupRef}>
+        <mesh castShadow>
+          <icosahedronGeometry args={[0.22, 0]} />
+          <meshLambertMaterial color="#5CA08E" emissive="#1D4A40" emissiveIntensity={0.25} />
+        </mesh>
+        {/* Little satellite beads orbiting the star */}
+        {[-0.32, 0.32].map((x, i) => (
+          <mesh key={i} position={[x, 0, 0]}>
+            <boxGeometry args={[0.07, 0.07, 0.07]} />
+            <meshLambertMaterial color="#A4E0CE" />
+          </mesh>
+        ))}
+      </group>
+    )
+  }
+
+  // Object 3: Antiquated Cozy Ceramic Urn / Teapot
+  return (
+    <group ref={groupRef}>
+      {/* Urn / pot body */}
+      <mesh position={[0, -0.04, 0]} castShadow>
+        <cylinderGeometry args={[0.18, 0.12, 0.28, 6]} />
+        <meshLambertMaterial color="#C48E58" />
+      </mesh>
+      {/* Lid & knob */}
+      <mesh position={[0, 0.14, 0]} castShadow>
+        <cylinderGeometry args={[0.07, 0.19, 0.08, 6]} />
+        <meshLambertMaterial color="#7D5028" />
+      </mesh>
+      <mesh position={[0, 0.21, 0]} castShadow>
+        <sphereGeometry args={[0.045, 4, 3]} />
+        <meshLambertMaterial color="#E8C88A" />
+      </mesh>
+      {/* Spout */}
+      <mesh position={[0.2, 0.04, 0]} rotation={[0, 0, -0.6]} castShadow>
+        <cylinderGeometry args={[0.035, 0.05, 0.22, 5]} />
+        <meshLambertMaterial color="#9E6E3D" />
+      </mesh>
+    </group>
+  )
+}
+
+/** Stand / Pedestal with a gently floating unique object */
+function PedestalWithArtifact({ position, index }: PedestalProps) {
   return (
     <group position={position}>
+      {/* Brown wooden pedestal stand */}
       <mesh castShadow receiveShadow>
         <boxGeometry args={[0.8, 0.7, 0.8]} />
         <meshLambertMaterial color="#7A5C3A" />
       </mesh>
-      {/* Soil top */}
+      {/* Pedestal top trim plate */}
       <mesh position={[0, 0.36, 0]}>
         <boxGeometry args={[0.72, 0.04, 0.72]} />
-        <meshLambertMaterial color="#3D2810" />
+        <meshLambertMaterial color="#5C3D20" />
       </mesh>
-      {/* Simple blocky plant */}
-      <mesh position={[0, 0.7, 0]} castShadow>
-        <boxGeometry args={[0.35, 0.6, 0.35]} />
-        <meshLambertMaterial color="#4A7A3A" />
-      </mesh>
+
+      {/* Floating unique exhibit object */}
+      <FloatingDisplayObject index={index} />
     </group>
   )
 }
@@ -150,10 +263,10 @@ export default function SanctuaryRoom() {
       <Bench position={[-5,  0.3,  9]} />
       <Bench position={[ 0,  0.3,  9]} />
 
-      <Planter position={[ 7,  0.35, -10]} />
-      <Planter position={[-7,  0.35, -10]} />
-      <Planter position={[ 7,  0.35,  10]} />
-      <Planter position={[-7,  0.35,  10]} />
+      <PedestalWithArtifact position={[ 7,  0.35, -10]} index={0} />
+      <PedestalWithArtifact position={[-7,  0.35, -10]} index={1} />
+      <PedestalWithArtifact position={[ 7,  0.35,  10]} index={2} />
+      <PedestalWithArtifact position={[-7,  0.35,  10]} index={3} />
     </group>
   )
 }
