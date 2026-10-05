@@ -19,7 +19,7 @@ npm run lint      # ESLint, zero warnings allowed
 
 ## Project Structure
 
-```
+```md
 src/
 ├── App.tsx                        # Root — CatProgressProvider + AudioContext + Scene + HUD
 ├── Scene.tsx                      # R3F Canvas, centeredEvents, SceneLights, scene composition
@@ -54,7 +54,7 @@ src/
 
 ## Architecture
 
-```
+```md
 App
 ├── CatProgressProvider  (React Context + localStorage)
 ├── AudioContext         (React Context)
@@ -73,7 +73,7 @@ App
 ### State Boundaries
 
 | State | Location | Persisted |
-|---|---|---|
+| --- | --- | --- |
 | Found cats | `CatProgressContext` | `localStorage` (`mewseum_found_cats`) |
 | Audio on/off | `AudioContext` | No (default off — autoplay policy) |
 | Tutorial seen | `HUD` via `localStorage` | `localStorage` (`mewseum_tutorial_seen`) |
@@ -96,7 +96,7 @@ The **CatTalisman** (`src/cats/CatTalisman.tsx`) is an altar object that provide
 
 Each found cat runs a five-state machine inside `useFrame`:
 
-```
+```md
 IDLE → WANDER → (SOCIAL if nearby found cat detected) → back to IDLE
                  ↕
               COOLDOWN  (after being pet — stays near player)
@@ -109,6 +109,7 @@ All cat world positions are written into the module-level `catPositionsRegistry`
 ### PS1 Renderer
 
 The R3F `Canvas` is configured with `antialias: false` and `dpr={1}`. The `PS1Pipeline` runs after the scene render and applies:
+
 - **Colour banding** — quantises RGB to N discrete bands (`uBands`, default 24)
 - **Bayer ordered dithering** — 4×4 matrix applied before banding (`uDitherStrength`, default 0.08)
 
@@ -181,7 +182,7 @@ Edit `src/frames/frameData.ts` → append to `FRAME_DATA`:
 ### File Naming
 
 | Pattern | Use |
-|---|---|
+| --- | --- |
 | `PascalCase.tsx` | React components |
 | `camelCase.ts` | Hooks and utilities |
 | `kebab-case.png` | Assets |
