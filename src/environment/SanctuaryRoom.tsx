@@ -1,5 +1,6 @@
 import { useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
+import type { ThreeEvent } from '@react-three/fiber'
 import * as THREE from 'three'
 
 // Room dimensions (metres, roughly)
@@ -47,59 +48,121 @@ interface PedestalProps {
   index: number
 }
 
+// Sound effect helper: plays a gentle high-pitched bell/chime ping when interacting with gallery relics
+function playRelicChime(freq = 660) {
+  try {
+    const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
+    if (!AudioCtx) return
+    const ctx = new AudioCtx()
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.type = 'triangle'
+    osc.frequency.setValueAtTime(freq, ctx.currentTime)
+    osc.frequency.exponentialRampToValueAtTime(freq * 1.5, ctx.currentTime + 0.15)
+    gain.gain.setValueAtTime(0.08, ctx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.45)
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.start()
+    osc.stop(ctx.currentTime + 0.45)
+  } catch {
+    // Ignore audio autoplay restrictions
+  }
+}
+
 function MysticStarPolyhedron() {
   const groupRef = useRef<THREE.Group>(null)
+  const coreMeshRef = useRef<THREE.Mesh>(null)
   const bead1Ref = useRef<THREE.Mesh>(null)
   const bead2Ref = useRef<THREE.Mesh>(null)
   const bead3Ref = useRef<THREE.Mesh>(null)
   const elapsedRef = useRef(3.0)
+  const interactRef = useRef<number | null>(null)
+  const lastPointerDown = useRef(0)
+
+  function triggerInteract(e: ThreeEvent<PointerEvent | MouseEvent>) {
+    e.stopPropagation()
+    if (e.nativeEvent.type === 'pointerdown') {
+      lastPointerDown.current = performance.now()
+    } else if (performance.now() - lastPointerDown.current < 500) {
+      return
+    }
+    interactRef.current = 0
+    playRelicChime(880)
+  }
 
   useFrame((_, delta) => {
     if (!groupRef.current) return
     elapsedRef.current += delta
     const t = elapsedRef.current
 
+    let boost = 1.0
+    let burstScale = 1.0
+
+    if (interactRef.current !== null) {
+      interactRef.current += delta
+      const prog = Math.min(interactRef.current / 0.85, 1)
+      const remaining = 1 - prog
+      // Bead acceleration boost and star core scale pulse
+      boost = 1.0 + remaining * 4.5
+      burstScale = 1.0 + Math.sin(prog * Math.PI) * 0.45
+
+      if (prog >= 1) {
+        interactRef.current = null
+      }
+    }
+
+    if (coreMeshRef.current) {
+      coreMeshRef.current.scale.setScalar(burstScale)
+    }
+
     // Floating bob & star rotation
     groupRef.current.position.y = 0.95 + Math.sin(t * 2.2) * 0.07
-    groupRef.current.rotation.y = t * 0.5
+    groupRef.current.rotation.y += delta * 0.5 * boost
     groupRef.current.rotation.z = Math.sin(t * 0.8) * 0.1
 
-    // Bead 1: Fast horizontal-ish close orbit (radius ~0.36)
+    // Bead 1: Fast horizontal-ish close orbit
     if (bead1Ref.current) {
-      const a1 = t * 2.0
+      const a1 = t * 2.0 * boost
+      const r1 = 0.36 * burstScale
       bead1Ref.current.position.set(
-        Math.cos(a1) * 0.36,
+        Math.cos(a1) * r1,
         Math.sin(a1 * 0.5) * 0.08,
-        Math.sin(a1) * 0.36,
+        Math.sin(a1) * r1,
       )
     }
 
-    // Bead 2: Tilted polar orbit, medium speed, opposite direction (radius ~0.44)
+    // Bead 2: Tilted polar orbit, medium speed, opposite direction
     if (bead2Ref.current) {
-      const a2 = -t * 1.4 + 1.2
-      const r = 0.44
+      const a2 = (-t * 1.4 + 1.2) * boost
+      const r2 = 0.44 * burstScale
       bead2Ref.current.position.set(
-        Math.cos(a2) * r * 0.7,
-        Math.sin(a2) * r,
-        Math.cos(a2) * r * 0.7,
+        Math.cos(a2) * r2 * 0.7,
+        Math.sin(a2) * r2,
+        Math.cos(a2) * r2 * 0.7,
       )
     }
 
-    // Bead 3: Slow wide equatorial loop with vertical undulation (radius ~0.52)
+    // Bead 3: Slow wide equatorial loop with vertical undulation
     if (bead3Ref.current) {
-      const a3 = t * 1.1 + 3.14
+      const a3 = (t * 1.1 + 3.14) * boost
+      const r3 = 0.52 * burstScale
       bead3Ref.current.position.set(
-        Math.sin(a3) * 0.52,
+        Math.sin(a3) * r3,
         Math.cos(a3 * 2) * 0.14,
-        Math.cos(a3) * 0.52,
+        Math.cos(a3) * r3,
       )
     }
   })
 
   return (
-    <group ref={groupRef}>
+    <group
+      ref={groupRef}
+      onClick={triggerInteract}
+      onPointerDown={triggerInteract}
+    >
       {/* Central Star Core */}
-      <mesh castShadow>
+      <mesh ref={coreMeshRef} castShadow>
         <icosahedronGeometry args={[0.22, 0]} />
         <meshLambertMaterial color="#5CA08E" emissive="#1D4A40" emissiveIntensity={0.25} />
       </mesh>
@@ -134,24 +197,88 @@ function MysticStarPolyhedron() {
  */
 function FloatingDisplayObject({ index }: { index: number }) {
   const groupRef = useRef<THREE.Group>(null)
+  const childGroupRef = useRef<THREE.Group>(null)
   const elapsedRef = useRef(index * 1.5) // staggered initial phase
+  const interactRef = useRef<number | null>(null)
+  const lastPointerDown = useRef(0)
+
+  function triggerInteract(e: ThreeEvent<PointerEvent | MouseEvent>) {
+    e.stopPropagation()
+    if (e.nativeEvent.type === 'pointerdown') {
+      lastPointerDown.current = performance.now()
+    } else if (performance.now() - lastPointerDown.current < 500) {
+      return
+    }
+    interactRef.current = 0
+
+    // Relic sound pitch varies by object
+    const pitches = [520, 620, 880, 440]
+    playRelicChime(pitches[index] || 550)
+  }
 
   useFrame((_, delta) => {
     if (!groupRef.current) return
     elapsedRef.current += delta
     const t = elapsedRef.current
 
+    let spinBoost = 0
+    let liftBoost = 0
+    let wobbleX = 0
+    let wobbleZ = 0
+    let scaleX = 1
+    let scaleY = 1
+    let scaleZ = 1
+
+    if (interactRef.current !== null) {
+      interactRef.current += delta
+      const prog = interactRef.current / 0.75
+      const remaining = Math.max(0, 1 - prog)
+
+      if (index === 0) {
+        // Crystal Save Point: Rapid spinning charge-up + vertical leap + jewel flash
+        spinBoost = remaining * 18
+        liftBoost = Math.sin(prog * Math.PI) * 0.28
+        scaleX = 1 + Math.sin(prog * Math.PI) * 0.25
+        scaleY = 1 + Math.sin(prog * Math.PI) * 0.35
+        scaleZ = scaleX
+      } else if (index === 1) {
+        // Woolen Yarn: Bouncy squash-and-stretch + excited roll
+        liftBoost = Math.sin(prog * Math.PI) * 0.22
+        const bounce = Math.sin(prog * Math.PI * 4) * remaining
+        scaleY = 1 - bounce * 0.3
+        scaleX = 1 + bounce * 0.25
+        scaleZ = 1 + bounce * 0.25
+        spinBoost = Math.sin(prog * Math.PI * 2) * 6
+      } else if (index === 3) {
+        // Ceramic Teapot: Spirited wobble dance and lid puff
+        liftBoost = Math.sin(prog * Math.PI) * 0.15
+        wobbleX = Math.sin(t * 30) * 0.25 * remaining
+        wobbleZ = Math.cos(t * 26) * 0.2 * remaining
+        spinBoost = Math.sin(prog * Math.PI * 2) * 4
+      }
+
+      if (prog >= 1) {
+        interactRef.current = null
+      }
+    }
+
     // Bobbing motion similar to treats (Math.sin(t * Math.PI) * amplitude)
-    groupRef.current.position.y = 0.95 + Math.sin(t * 2.2) * 0.07
-    // Gentle rotation
-    groupRef.current.rotation.y = t * 0.75
-    groupRef.current.rotation.x = Math.sin(t * 1.1) * 0.08
+    groupRef.current.position.y = 0.95 + Math.sin(t * 2.2) * 0.07 + liftBoost
+    // Gentle rotation + interact spin boost
+    groupRef.current.rotation.y += delta * (0.75 + spinBoost)
+    groupRef.current.rotation.x = Math.sin(t * 1.1) * 0.08 + wobbleX
+    groupRef.current.rotation.z = wobbleZ
+    groupRef.current.scale.set(scaleX, scaleY, scaleZ)
   })
 
   // Object 0: Crystal Geode (Warm Emerald Green / PS1 Memory Save Crystal)
   if (index === 0) {
     return (
-      <group ref={groupRef}>
+      <group
+        ref={groupRef}
+        onClick={triggerInteract}
+        onPointerDown={triggerInteract}
+      >
         {/* Central dual pyramid crystal — classic PS1 save-point warm green */}
         <mesh castShadow>
           <octahedronGeometry args={[0.26, 0]} />
@@ -169,7 +296,11 @@ function FloatingDisplayObject({ index }: { index: number }) {
   // Object 1: Cozy Woolen Yarn Ball with knitting needles
   if (index === 1) {
     return (
-      <group ref={groupRef}>
+      <group
+        ref={groupRef}
+        onClick={triggerInteract}
+        onPointerDown={triggerInteract}
+      >
         {/* Main wool ball */}
         <mesh castShadow>
           <sphereGeometry args={[0.22, 6, 5]} />
@@ -195,21 +326,27 @@ function FloatingDisplayObject({ index }: { index: number }) {
 
   // Object 3: Antiquated Cozy Ceramic Urn / Teapot
   return (
-    <group ref={groupRef}>
+    <group
+      ref={groupRef}
+      onClick={triggerInteract}
+      onPointerDown={triggerInteract}
+    >
       {/* Urn / pot body */}
       <mesh position={[0, -0.04, 0]} castShadow>
         <cylinderGeometry args={[0.18, 0.12, 0.28, 6]} />
         <meshLambertMaterial color="#C48E58" />
       </mesh>
       {/* Lid & knob */}
-      <mesh position={[0, 0.14, 0]} castShadow>
-        <cylinderGeometry args={[0.07, 0.19, 0.08, 6]} />
-        <meshLambertMaterial color="#7D5028" />
-      </mesh>
-      <mesh position={[0, 0.21, 0]} castShadow>
-        <sphereGeometry args={[0.045, 4, 3]} />
-        <meshLambertMaterial color="#E8C88A" />
-      </mesh>
+      <group ref={childGroupRef}>
+        <mesh position={[0, 0.14, 0]} castShadow>
+          <cylinderGeometry args={[0.07, 0.19, 0.08, 6]} />
+          <meshLambertMaterial color="#7D5028" />
+        </mesh>
+        <mesh position={[0, 0.21, 0]} castShadow>
+          <sphereGeometry args={[0.045, 4, 3]} />
+          <meshLambertMaterial color="#E8C88A" />
+        </mesh>
+      </group>
       {/* Spout */}
       <mesh position={[0.2, 0.04, 0]} rotation={[0, 0, -0.6]} castShadow>
         <cylinderGeometry args={[0.035, 0.05, 0.22, 5]} />
