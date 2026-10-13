@@ -1,6 +1,15 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@theme {
+  --font-pixel: "Press Start 2P", monospace;
+
+  --color-sanctuary-amber: #D4955A;
+  --color-sanctuary-dust: #C8A882;
+  --color-sanctuary-teal: #5A8A8A;
+  --color-sanctuary-rose: #C47A7A;
+  --color-sanctuary-dark: #1A1410;
+  --color-sanctuary-warm: #2A1F14;
+}
 
 /* Reset and base */
 *, *::before, *::after {
