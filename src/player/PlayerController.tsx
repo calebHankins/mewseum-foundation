@@ -52,6 +52,10 @@ export default function PlayerController() {
 
   // ── Pointer lock (desktop) ───────────────────────────────────────────────
   const requestLock = useCallback(() => {
+    // Only capture pointer lock if using a fine pointer device (e.g. mouse),
+    // avoiding unwanted pointer capture on mobile browsers (such as Chrome mobile)
+    // where touch taps synthesize click events.
+    if (!window.matchMedia('(pointer: fine)').matches) return
     gl.domElement.requestPointerLock()
   }, [gl])
 
