@@ -17,23 +17,29 @@
 
 ```md
 App
-└── HUD (React overlay, absolute positioned)
+├── HUD (React overlay, absolute positioned)
+├── PebbleSort (React mini-game modal overlay, conditional)
 └── Canvas (R3F)
-    ├── PS1EffectPipeline (postprocessing)
-    ├── PlayerController (camera + movement)
+    ├── PS1Pipeline (postprocessing)
+    ├── PlayerController (camera + movement + touch controls)
     ├── SanctuaryRoom (static geometry)
     ├── Atmosphere (particles + light shafts)
     ├── CatRegistry (maps found cats → Cat instances)
-    │   └── Cat × N (mesh + interaction)
+    │   └── Cat × N (mesh + behavior state machine + interactions)
+    ├── CatTalisman (altar offering to find cats)
+    ├── TreatDispenser (interactive treat machine)
+    ├── WorldTreat (dropped treat meshes)
     └── FrameRegistry (game frames)
-        └── GameFrame × N (mesh + click handler)
+        └── GameFrame × N (mesh + click handler / mini-game launcher)
 ```
 
 ## State Management
 
-- **Cat progression**: React Context (`CatProgressContext`) backed by `localStorage`
-- **Audio state**: Local React state in `HUD`, passed down via context
-- **3D interaction**: Raycasting handled in individual interactive components via R3F's `onClick` / `onPointerOver`
+- **Cat progression**: React Context (`CatProgressContext`) backed by `localStorage` (`mewseum_found_cats`)
+- **Audio state**: React Context (`AudioContext`) with opt-in toggle and Web Audio procedural synthesis
+- **Treat state**: React Context (`TreatContext`) tracking held treat and dropped world treats
+- **HUD preferences**: Help visibility & tutorial completion backed by `localStorage`
+- **3D interaction**: Reticle-aimed raycasting via `centeredEvents` when pointer-locked, cursor raycasting when unlocked / on touch
 
 ## Renderer Settings (PS1 Aesthetic)
 
