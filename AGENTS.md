@@ -21,33 +21,51 @@ npm run lint      # ESLint, zero warnings allowed
 
 ```md
 src/
-├── App.tsx                        # Root — CatProgressProvider + AudioContext + Scene + HUD
+├── App.tsx                        # Root — CatProgressProvider + AudioProvider + TreatProvider + Scene + HUD + PebbleSort
 ├── Scene.tsx                      # R3F Canvas, centeredEvents, SceneLights, scene composition
 ├── audio/
 │   ├── AudioContext.tsx            # Context for audioEnabled / toggleAudio
 │   ├── meow.ts                     # Web Audio procedural meow generator
+│   ├── pebbleSounds.ts             # Sound effects for Pebble Sort game
 │   └── useAmbientAudio.ts          # Ambient drone hook, driven by audioEnabled
 ├── cats/
-│   ├── catData.ts                  # CatDef type + CAT_REGISTRY constant
-│   ├── Cat.tsx                     # Individual cat mesh + state machine + interactions
+│   ├── catData.ts                  # CatDef type + CAT_REGISTRY constant (10 cats)
+│   ├── Cat.tsx                     # Individual cat coordinator (state, interactions, refs)
 │   ├── CatRegistry.tsx             # Maps CAT_REGISTRY → <Cat> instances
-│   └── CatTalisman.tsx             # Altar object that reveals undiscovered cats
+│   ├── CatTalisman.tsx             # Altar object that reveals undiscovered cats
+│   ├── CatVisual.tsx               # Cat mesh, tail wagging, ear twitching, and heart sprites
+│   ├── catBehavior.ts              # State types, steer math, and registry
+│   ├── catPhysics.ts               # Jump velocities and ground/gravity physics
+│   ├── catAnimation.ts             # Scale pulses, heart timers, and treat growth
+│   ├── catWanderBehavior.ts        # Obstacle avoidance and wandering logic
+│   ├── catSocialBehavior.ts        # Social pairing, approach, and hearts
+│   ├── catCooldownBehavior.ts      # Post-petting player following
+│   └── catTreatBehavior.ts         # Treat pathing and eating
 ├── environment/
-│   ├── SanctuaryRoom.tsx           # Room geometry, walls, floor, furniture
+│   ├── SanctuaryRoom.tsx           # Room geometry, walls, floor, ceiling, furniture
 │   └── Atmosphere.tsx              # Particle dust + light shaft god rays
 ├── frames/
 │   ├── frameData.ts                # FrameDef type + FRAME_DATA constant
-│   ├── GameFrame.tsx               # Individual frame mesh + click-to-open-URL
+│   ├── GameFrame.tsx               # Wall-mounted exhibit mesh + click-to-open-URL / open mini-game
 │   └── FrameRegistry.tsx           # Maps FRAME_DATA → <GameFrame> instances
+├── games/
+│   └── PebbleSort.tsx              # Interactive 2D cozy pebble sorting mini-game
 ├── player/
-│   └── PlayerController.tsx        # WASD + mouse look (pointer lock) + touch controls
+│   ├── PlayerController.tsx        # WASD + mouse look (pointer lock) + touch controls
+│   ├── obstacleCollision.ts        # Obstacle definitions, bounding checks, and steering force
+│   └── playerState.ts              # Reactive player position and orientation tracker
 ├── progression/
-│   └── CatProgressContext.tsx      # localStorage-backed Context for found cats
+│   └── CatProgressContext.tsx      # localStorage-backed Context for found cats (`useCatProgress`)
 ├── shaders/
 │   ├── PS1Effect.tsx               # Bayer dither + colour-banding Effect class
 │   └── PS1Pipeline.tsx             # EffectComposer wrapping PS1EffectImpl
+├── treats/
+│   ├── TreatContext.tsx            # Context for held treats and dropped world treats
+│   ├── treatData.ts                # Timing, distances, and colour constants
+│   ├── TreatDispenser.tsx          # 3D treat dispenser with candy globe
+│   └── WorldTreat.tsx              # Dropped treats in the world
 └── ui/
-    └── HUD.tsx                     # React overlay: cat counter, audio toggle, tutorial
+    └── HUD.tsx                     # React overlay: cat counter, audio toggle, help, held treat, tutorial
 ```
 
 ---
@@ -57,8 +75,10 @@ src/
 ```md
 App
 ├── CatProgressProvider  (React Context + localStorage)
-├── AudioContext         (React Context)
+├── AudioProvider        (React Context)
+├── TreatProvider        (React Context)
 ├── HUD                  (DOM overlay, TailwindCSS)
+├── PebbleSort           (DOM modal mini-game overlay, conditional)
 └── Scene (R3F Canvas)
     ├── PlayerController (camera, WASD, pointer lock, touch)
     ├── SceneLights      (ambient + directional)
@@ -66,7 +86,9 @@ App
     ├── Atmosphere       (particles, god rays)
     ├── CatRegistry      → Cat × N  (mesh + behavior state machine)
     ├── CatTalisman      (interactive altar)
-    ├── FrameRegistry    → GameFrame × N (mesh + URL handler)
+    ├── TreatDispenser   (interactive treat machine)
+    ├── WorldTreat       (dropped treat meshes)
+    ├── FrameRegistry    → GameFrame × N (mesh + URL handler / mini-game opener)
     └── PS1Pipeline      (postprocessing: dither + banding)
 ```
 
@@ -77,8 +99,10 @@ App
 | Found cats | `CatProgressContext` | `localStorage` (`mewseum_found_cats`) |
 | Audio on/off | `AudioContext` | No (default off — autoplay policy) |
 | Tutorial seen | `HUD` via `localStorage` | `localStorage` (`mewseum_tutorial_seen`) |
+| Help visible | `HUD` via `localStorage` | `localStorage` (`mewseum_help_visible`) |
+| Held & World Treats | `TreatContext` | No |
 | Cat behavior | `Cat` local state + refs | No |
-| Camera/movement | `PlayerController` refs | No |
+| Camera/movement | `PlayerController` & `playerState` refs | No |
 
 ---
 
@@ -94,12 +118,14 @@ The **CatTalisman** (`src/cats/CatTalisman.tsx`) is an altar object that provide
 
 ### Cat Behavior State Machine
 
-Each found cat runs a five-state machine inside `useFrame`:
+Each found cat runs a multi-state machine inside `useFrame`:
 
 ```md
-IDLE → WANDER → (SOCIAL if nearby found cat detected) → back to IDLE
-                 ↕
-              COOLDOWN  (after being pet — stays near player)
+IDLE ──► WANDER ──► (SOCIAL if nearby found cat detected) ──► back to IDLE
+  ▲        │
+  │        ├──► (EAT if nearby treat detected) ──► back to IDLE / WANDER
+  │        │
+  │        └──► (COOLDOWN after being pet — stays near player) ──► back to IDLE
 ```
 
 All cat world positions are written into the module-level `catPositionsRegistry` record each frame so cats can detect each other without React state coordination.
@@ -110,8 +136,8 @@ All cat world positions are written into the module-level `catPositionsRegistry`
 
 The R3F `Canvas` is configured with `antialias: false` and `dpr={1}`. The `PS1Pipeline` runs after the scene render and applies:
 
-- **Colour banding** — quantises RGB to N discrete bands (`uBands`, default 24)
-- **Bayer ordered dithering** — 4×4 matrix applied before banding (`uDitherStrength`, default 0.08)
+- **Colour banding** — quantises RGB to N discrete bands (`uBands`, default 64 in pipeline)
+- **Bayer ordered dithering** — 4×4 matrix applied before banding (`uDitherStrength`, default 0.015625 in pipeline)
 
 Never enable anti-aliasing or increase `dpr` — both break the aesthetic.
 
