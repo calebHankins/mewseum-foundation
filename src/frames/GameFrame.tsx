@@ -20,7 +20,14 @@ export default function GameFrame({ def, onOpenPebbleSort, onRequestExternalNav 
   const [hovered, setHovered] = useState(false)
   const isInteractive = def.id === 'pebbles' || Boolean(def.url)
 
-  const handleClick = useCallback(() => {
+  const lastInteraction = useRef(0)
+
+  const handleInteract = useCallback((e?: { stopPropagation?: () => void }) => {
+    e?.stopPropagation?.()
+    const now = performance.now()
+    if (now - lastInteraction.current < 400) return
+    lastInteraction.current = now
+
     if (def.id === 'pebbles') {
       document.exitPointerLock?.()
       onOpenPebbleSort()
@@ -39,7 +46,8 @@ export default function GameFrame({ def, onOpenPebbleSort, onRequestExternalNav 
       ref={groupRef}
       position={def.position}
       rotation={def.rotation}
-      onPointerDown={isInteractive ? handleClick : undefined}
+      onClick={isInteractive ? handleInteract : undefined}
+      onPointerDown={isInteractive ? handleInteract : undefined}
       onPointerOver={isInteractive ? () => setHovered(true) : undefined}
       onPointerOut={isInteractive ? () => setHovered(false) : undefined}
     >

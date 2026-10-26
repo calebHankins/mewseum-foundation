@@ -72,16 +72,22 @@ export function ExitConfirmDialog({ pending, onConfirm, onCancel }: ExitConfirmD
         <div className="flex gap-3 justify-center">
           <button
             ref={stayButtonRef}
-            className="font-pixel text-xs border border-sanctuary-amber/40 text-sanctuary-amber px-4 py-2 rounded hover:bg-sanctuary-warm/20 transition-colors"
-            onClick={onCancel}
-            onPointerDown={onCancel}
+            type="button"
+            className="font-pixel text-xs border border-sanctuary-amber/40 text-sanctuary-amber px-4 py-2 rounded hover:bg-sanctuary-warm/20 transition-colors cursor-pointer select-none"
+            onClick={(e) => {
+              e.stopPropagation()
+              onCancel()
+            }}
           >
             Stay
           </button>
           <button
-            className="font-pixel text-xs bg-sanctuary-amber/80 text-sanctuary-dark px-4 py-2 rounded hover:bg-sanctuary-amber transition-colors"
-            onClick={onConfirm}
-            onPointerDown={onConfirm}
+            type="button"
+            className="font-pixel text-xs bg-sanctuary-amber/80 text-sanctuary-dark px-4 py-2 rounded hover:bg-sanctuary-amber transition-colors cursor-pointer select-none"
+            onClick={(e) => {
+              e.stopPropagation()
+              onConfirm()
+            }}
           >
             Go →
           </button>

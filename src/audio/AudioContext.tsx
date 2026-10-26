@@ -13,22 +13,30 @@ const AudioCtx = createContext<AudioContextValue | null>(null)
 
 export function AudioProvider({ children }: { children: ReactNode }) {
   const [audioEnabled, setAudioEnabled] = useState(true)
-  // Stores whether audio was on before a dialog pause so we can restore it exactly.
-  // Using a ref avoids an extra re-render on pause/resume.
+  const isPausedForDialogRef = useRef(false)
   const prePauseEnabledRef = useRef(true)
 
   const toggleAudio = useCallback(() => {
-    setAudioEnabled(v => !v)
-  }, [])
-
-  const pauseForDialog = useCallback(() => {
-    setAudioEnabled(current => {
-      prePauseEnabledRef.current = current
-      return false
+    setAudioEnabled(v => {
+      // If user toggles audio manually while dialog is open or anytime, track their intent
+      prePauseEnabledRef.current = !v
+      return !v
     })
   }, [])
 
+  const pauseForDialog = useCallback(() => {
+    // If already paused for dialog, don't overwrite prePauseEnabledRef with false!
+    if (!isPausedForDialogRef.current) {
+      isPausedForDialogRef.current = true
+      setAudioEnabled(current => {
+        prePauseEnabledRef.current = current
+        return false
+      })
+    }
+  }, [])
+
   const resumeAfterDialog = useCallback(() => {
+    isPausedForDialogRef.current = false
     setAudioEnabled(prePauseEnabledRef.current)
   }, [])
 
