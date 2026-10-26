@@ -6,6 +6,8 @@ import type { FrameDef } from './frameData'
 interface GameFrameProps {
   def: FrameDef
   onOpenPebbleSort: () => void
+  /** Called instead of window.open when this frame has an external url. */
+  onRequestExternalNav: (payload: { url: string; title: string }) => void
 }
 
 /**
@@ -13,7 +15,7 @@ interface GameFrameProps {
  * Displays the game title + description on a low-poly frame.
  * Clicking/tapping opens linked exhibits or the built-in Pebble Sort game.
  */
-export default function GameFrame({ def, onOpenPebbleSort }: GameFrameProps) {
+export default function GameFrame({ def, onOpenPebbleSort, onRequestExternalNav }: GameFrameProps) {
   const groupRef = useRef<THREE.Group>(null)
   const [hovered, setHovered] = useState(false)
   const isInteractive = def.id === 'pebbles' || Boolean(def.url)
@@ -23,9 +25,9 @@ export default function GameFrame({ def, onOpenPebbleSort }: GameFrameProps) {
       document.exitPointerLock?.()
       onOpenPebbleSort()
     } else if (def.url) {
-      window.open(def.url, '_blank', 'noopener,noreferrer')
+      onRequestExternalNav({ url: def.url, title: def.title })
     }
-  }, [def.id, def.url, onOpenPebbleSort])
+  }, [def.id, def.url, def.title, onOpenPebbleSort, onRequestExternalNav])
 
   const accent = new THREE.Color(def.accentColor)
   const frameColor = hovered
