@@ -6,6 +6,8 @@ import type { FrameDef } from './frameData'
 interface GameFrameProps {
   def: FrameDef
   onOpenPebbleSort: () => void
+  /** Called instead of window.open when this frame has an external url. */
+  onRequestExternalNav: (payload: { url: string; title: string }) => void
 }
 
 /**
@@ -13,19 +15,26 @@ interface GameFrameProps {
  * Displays the game title + description on a low-poly frame.
  * Clicking/tapping opens linked exhibits or the built-in Pebble Sort game.
  */
-export default function GameFrame({ def, onOpenPebbleSort }: GameFrameProps) {
+export default function GameFrame({ def, onOpenPebbleSort, onRequestExternalNav }: GameFrameProps) {
   const groupRef = useRef<THREE.Group>(null)
   const [hovered, setHovered] = useState(false)
   const isInteractive = def.id === 'pebbles' || Boolean(def.url)
 
-  const handleClick = useCallback(() => {
+  const lastInteraction = useRef(0)
+
+  const handleInteract = useCallback((e?: { stopPropagation?: () => void }) => {
+    e?.stopPropagation?.()
+    const now = performance.now()
+    if (now - lastInteraction.current < 400) return
+    lastInteraction.current = now
+
     if (def.id === 'pebbles') {
       document.exitPointerLock?.()
       onOpenPebbleSort()
     } else if (def.url) {
-      window.open(def.url, '_blank', 'noopener,noreferrer')
+      onRequestExternalNav({ url: def.url, title: def.title })
     }
-  }, [def.id, def.url, onOpenPebbleSort])
+  }, [def.id, def.url, def.title, onOpenPebbleSort, onRequestExternalNav])
 
   const accent = new THREE.Color(def.accentColor)
   const frameColor = hovered
@@ -37,7 +46,8 @@ export default function GameFrame({ def, onOpenPebbleSort }: GameFrameProps) {
       ref={groupRef}
       position={def.position}
       rotation={def.rotation}
-      onPointerDown={isInteractive ? handleClick : undefined}
+      onClick={isInteractive ? handleInteract : undefined}
+      onPointerDown={isInteractive ? handleInteract : undefined}
       onPointerOver={isInteractive ? () => setHovered(true) : undefined}
       onPointerOut={isInteractive ? () => setHovered(false) : undefined}
     >
@@ -53,10 +63,32 @@ export default function GameFrame({ def, onOpenPebbleSort }: GameFrameProps) {
         <meshLambertMaterial color="#1A1410" />
       </mesh>
 
+      {/* ── Procedural badge disc & glyph ──────────────── */}
+      {def.badgeGlyph && (
+        <group position={[0, 0.48, 0.08]}>
+          <mesh>
+            <circleGeometry args={[0.26, 16]} />
+            <meshLambertMaterial color="#120E0B" />
+          </mesh>
+          <mesh position={[0, 0, -0.005]}>
+            <circleGeometry args={[0.29, 16]} />
+            <meshLambertMaterial color={def.accentColor} />
+          </mesh>
+          <Text
+            position={[0, -0.02, 0.02]}
+            fontSize={0.24}
+            anchorX="center"
+            anchorY="middle"
+          >
+            {def.badgeGlyph}
+          </Text>
+        </group>
+      )}
+
       {/* ── Title text ─────────────────────────────────── */}
       <Text
-        position={[0, 0.45, 0.1]}
-        fontSize={0.22}
+        position={[0, def.badgeGlyph ? 0.05 : 0.45, 0.1]}
+        fontSize={0.2}
         color={def.accentColor}
         anchorX="center"
         anchorY="middle"
@@ -68,8 +100,8 @@ export default function GameFrame({ def, onOpenPebbleSort }: GameFrameProps) {
 
       {/* ── Description text ───────────────────────────── */}
       <Text
-        position={[0, 0.05, 0.1]}
-        fontSize={0.12}
+        position={[0, def.badgeGlyph ? -0.28 : 0.05, 0.1]}
+        fontSize={0.11}
         color="#C8A882"
         anchorX="center"
         anchorY="middle"

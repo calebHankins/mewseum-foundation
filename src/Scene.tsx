@@ -81,9 +81,12 @@ function SceneLights() {
 // ─────────────────────────────────────────────────────────────────────────────
 interface SceneProps {
   onOpenPebbleSort: () => void
+  onRequestExternalNav: (payload: { url: string; title: string }) => void
+  /** When true, the R3F render loop is suspended (frameloop="demand"). */
+  paused?: boolean
 }
 
-export default function Scene({ onOpenPebbleSort }: SceneProps) {
+export default function Scene({ onOpenPebbleSort, onRequestExternalNav, paused = false }: SceneProps) {
   return (
     <Canvas
       // PS1: no anti-aliasing, locked pixel ratio
@@ -101,6 +104,7 @@ export default function Scene({ onOpenPebbleSort }: SceneProps) {
       }}
       style={{ background: '#1A1410' }}
       events={centeredEvents}
+      frameloop={paused ? 'demand' : 'always'}
     >
       <Suspense fallback={null}>
         {/* Navigation */}
@@ -124,7 +128,7 @@ export default function Scene({ onOpenPebbleSort }: SceneProps) {
         <WorldTreat />
 
         {/* Game exhibits */}
-        <FrameRegistry onOpenPebbleSort={onOpenPebbleSort} />
+        <FrameRegistry onOpenPebbleSort={onOpenPebbleSort} onRequestExternalNav={onRequestExternalNav} />
 
         {/* PS1 post-processing — dither + colour banding */}
         <PS1Pipeline />
