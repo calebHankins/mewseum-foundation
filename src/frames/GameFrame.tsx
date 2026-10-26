@@ -63,10 +63,32 @@ export default function GameFrame({ def, onOpenPebbleSort, onRequestExternalNav 
         <meshLambertMaterial color="#1A1410" />
       </mesh>
 
+      {/* ── Procedural badge disc & glyph ──────────────── */}
+      {def.badgeGlyph && (
+        <group position={[0, 0.48, 0.08]}>
+          <mesh>
+            <circleGeometry args={[0.26, 16]} />
+            <meshLambertMaterial color="#120E0B" />
+          </mesh>
+          <mesh position={[0, 0, -0.005]}>
+            <circleGeometry args={[0.29, 16]} />
+            <meshLambertMaterial color={def.accentColor} />
+          </mesh>
+          <Text
+            position={[0, -0.02, 0.02]}
+            fontSize={0.24}
+            anchorX="center"
+            anchorY="middle"
+          >
+            {def.badgeGlyph}
+          </Text>
+        </group>
+      )}
+
       {/* ── Title text ─────────────────────────────────── */}
       <Text
-        position={[0, 0.45, 0.1]}
-        fontSize={0.22}
+        position={[0, def.badgeGlyph ? 0.05 : 0.45, 0.1]}
+        fontSize={0.2}
         color={def.accentColor}
         anchorX="center"
         anchorY="middle"
@@ -78,8 +100,8 @@ export default function GameFrame({ def, onOpenPebbleSort, onRequestExternalNav 
 
       {/* ── Description text ───────────────────────────── */}
       <Text
-        position={[0, 0.05, 0.1]}
-        fontSize={0.12}
+        position={[0, def.badgeGlyph ? -0.28 : 0.05, 0.1]}
+        fontSize={0.11}
         color="#C8A882"
         anchorX="center"
         anchorY="middle"

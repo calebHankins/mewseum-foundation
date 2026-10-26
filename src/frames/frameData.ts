@@ -6,6 +6,7 @@ export interface FrameDef {
   position: [number, number, number]
   rotation: [number, number, number]
   accentColor: string
+  badgeGlyph?: string
 }
 
 /**
@@ -21,6 +22,7 @@ export const FRAME_DATA: FrameDef[] = [
     position: [-2.5, 2.2, -11.9],
     rotation: [0, 0, 0],
     accentColor: '#5A8A8A',
+    badgeGlyph: '🌬️',
   },
   {
     id: 'garden',
@@ -29,14 +31,17 @@ export const FRAME_DATA: FrameDef[] = [
     position: [-7.5, 2.2, -11.9],
     rotation: [0, 0, 0],
     accentColor: '#4A7A3A',
+    badgeGlyph: '🌱',
   },
   {
-    id: 'drift',
-    title: 'Drift',
-    description: 'Float through a calm starfield.',
+    id: 'sober-life-ii',
+    title: 'SoberLife II',
+    description: 'Try to make it through the day without getting too stressed!',
+    url: 'https://calebhankins.github.io/SoberLife-II/',
     position: [2.5, 2.2, -11.9],
     rotation: [0, 0, 0],
     accentColor: '#6A5A8A',
+    badgeGlyph: '😱',
   },
   {
     id: 'sober-life-iii',
@@ -46,6 +51,7 @@ export const FRAME_DATA: FrameDef[] = [
     position: [7.5, 2.2, -11.9],
     rotation: [0, 0, 0],
     accentColor: '#7A6A9A',
+    badgeGlyph: '🧘‍♀️',
   },
   {
     id: 'rain',
@@ -54,6 +60,7 @@ export const FRAME_DATA: FrameDef[] = [
     position: [9.9, 2.2, -4],
     rotation: [0, -Math.PI / 2, 0],
     accentColor: '#5A7A9A',
+    badgeGlyph: '🌧️',
   },
   {
     id: 'pebbles',
@@ -62,5 +69,6 @@ export const FRAME_DATA: FrameDef[] = [
     position: [9.9, 2.2, 4],
     rotation: [0, -Math.PI / 2, 0],
     accentColor: '#9A8A7A',
+    badgeGlyph: '🪨',
   },
 ]
