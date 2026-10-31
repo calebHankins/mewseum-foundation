@@ -404,15 +404,51 @@ function PedestalWithArtifact({ position, index }: PedestalProps) {
 
 function WingArtifact({ index }: { index: number }) {
   const groupRef = useRef<THREE.Group>(null)
+  const elapsedRef = useRef(index * 1.5)
+  const interactRef = useRef<number | null>(null)
+  const lastPointerDown = useRef(0)
+
+  function triggerInteract(e: ThreeEvent<PointerEvent | MouseEvent>) {
+    e.stopPropagation()
+    if (e.nativeEvent.type === 'pointerdown') {
+      lastPointerDown.current = performance.now()
+    } else if (performance.now() - lastPointerDown.current < 500) {
+      return
+    }
+    interactRef.current = 0
+    const pitches = [740, 620, 520, 880]
+    playRelicChime(pitches[index] || 660)
+  }
 
   useFrame((_, delta) => {
     if (!groupRef.current) return
-    groupRef.current.rotation.y += delta * 0.45
-    groupRef.current.position.y = 0.95 + Math.sin(performance.now() * 0.0018 + index) * 0.06
+    elapsedRef.current += delta
+    const elapsed = elapsedRef.current
+    let spinBoost = 0
+    let lift = 0
+    let pulse = 1
+
+    if (interactRef.current !== null) {
+      interactRef.current += delta
+      const progress = Math.min(interactRef.current / 0.85, 1)
+      const remaining = 1 - progress
+      spinBoost = remaining * 8
+      lift = Math.sin(progress * Math.PI) * 0.24
+      pulse = 1 + Math.sin(progress * Math.PI) * 0.3
+      if (progress >= 1) interactRef.current = null
+    }
+
+    groupRef.current.rotation.y += delta * (0.45 + spinBoost)
+    groupRef.current.position.y = 0.95 + Math.sin(elapsed * 1.8) * 0.06 + lift
+    groupRef.current.scale.setScalar(pulse)
   })
 
   return (
-    <group ref={groupRef}>
+    <group
+      ref={groupRef}
+      onClick={triggerInteract}
+      onPointerDown={triggerInteract}
+    >
       {index === 0 && (
         <>
           <mesh castShadow>
@@ -520,7 +556,7 @@ function Window({ position, rotation }: {
 export default function SanctuaryRoom() {
   // We use useMemo so geometry/material objects aren't recreated on every render
   const floorMat = useMemo(() => makeMat(PALETTE.floor, THREE.FrontSide), [])
-  const wallMat = useMemo(() => makeMat(PALETTE.wall, THREE.BackSide), [])
+  const wallMat = useMemo(() => makeMat(PALETTE.wall, THREE.DoubleSide), [])
   const ceilMat = useMemo(() => makeMat(PALETTE.ceiling, THREE.FrontSide), [])
 
   return (
@@ -589,7 +625,7 @@ export default function SanctuaryRoom() {
         </mesh>
       ))}
       {([-1, 1] as const).map(side => (
-        <mesh key={side} position={[WING_START_ROOM_X + WING_ROOM_LENGTH / 2, ROOM_H / 2, side * WING_ROOM_WIDTH / 2]}>
+        <mesh key={`gallery-side-${side}`} position={[WING_START_ROOM_X + WING_ROOM_LENGTH / 2, ROOM_H / 2, side * WING_ROOM_WIDTH / 2]}>
           <boxGeometry args={[WING_ROOM_LENGTH, ROOM_H, 0.08]} />
           <primitive object={wallMat} />
         </mesh>
@@ -597,6 +633,26 @@ export default function SanctuaryRoom() {
       <mesh position={[WING_ROOM_END_X, ROOM_H / 2, 0]}>
         <boxGeometry args={[0.08, ROOM_H, WING_ROOM_WIDTH]} />
         <primitive object={wallMat} />
+      </mesh>
+      <mesh position={[WING_START_ROOM_X, (ROOM_H + DOOR_HEIGHT) / 2, 0]}>
+        <boxGeometry args={[0.08, ROOM_H - DOOR_HEIGHT, WING_ROOM_WIDTH]} />
+        <primitive object={wallMat} />
+      </mesh>
+      {([-1, 1] as const).map(side => (
+        <mesh key={`gallery-entry-${side}`} position={[WING_START_ROOM_X, DOOR_HEIGHT / 2, side * (DOOR_WIDTH / 2 + (WING_ROOM_WIDTH - DOOR_WIDTH) / 4)]}>
+          <boxGeometry args={[0.08, DOOR_HEIGHT, (WING_ROOM_WIDTH - DOOR_WIDTH) / 2]} />
+          <primitive object={wallMat} />
+        </mesh>
+      ))}
+      {([-1, 1] as const).map(side => (
+        <mesh key={`gallery-jamb-${side}`} position={[WING_START_ROOM_X, DOOR_HEIGHT / 2, side * DOOR_WIDTH / 2]}>
+          <boxGeometry args={[0.14, DOOR_HEIGHT, 0.14]} />
+          <meshLambertMaterial color={PALETTE.trim} />
+        </mesh>
+      ))}
+      <mesh position={[WING_START_ROOM_X, DOOR_HEIGHT + 0.06, 0]}>
+        <boxGeometry args={[0.14, 0.12, DOOR_WIDTH + 0.24]} />
+        <meshLambertMaterial color={PALETTE.trim} />
       </mesh>
       <mesh position={[WING_START_X + 0.04, DOOR_HEIGHT, 0]}>
         <boxGeometry args={[0.16, 0.12, DOOR_WIDTH + 0.24]} />
