@@ -46,6 +46,30 @@ function makeMat(color: THREE.Color, side: THREE.Side = THREE.FrontSide) {
   return new THREE.MeshLambertMaterial({ color, side })
 }
 
+function PortalFrame({ positionX }: { positionX: number }) {
+  const frameDepth = 0.12
+  const frameWidth = 0.12
+  const jambHeight = DOOR_HEIGHT - frameWidth
+
+  return (
+    <>
+      {([-1, 1] as const).map(side => (
+        <mesh
+          key={`${positionX}-${side}`}
+          position={[positionX, jambHeight / 2, side * (DOOR_WIDTH / 2 - frameWidth / 2)]}
+        >
+          <boxGeometry args={[frameDepth, jambHeight, frameWidth]} />
+          <meshLambertMaterial color={PALETTE.trim} />
+        </mesh>
+      ))}
+      <mesh position={[positionX, DOOR_HEIGHT - frameWidth / 2, 0]}>
+        <boxGeometry args={[frameDepth, frameWidth, DOOR_WIDTH]} />
+        <meshLambertMaterial color={PALETTE.trim} />
+      </mesh>
+    </>
+  )
+}
+
 /** Chunky low-poly bench: a box with four short leg boxes */
 function Bench({ position }: { position: [number, number, number] }) {
   return (
@@ -600,6 +624,7 @@ export default function SanctuaryRoom() {
           <meshLambertMaterial color={PALETTE.wall} />
         </mesh>
       ))}
+      <PortalFrame positionX={WING_START_X} />
 
       {/* Hall and gallery walls, floor, and ceiling */}
       <mesh position={[WING_START_X + HALL_LENGTH / 2, 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
@@ -644,12 +669,7 @@ export default function SanctuaryRoom() {
           <primitive object={wallMat} />
         </mesh>
       ))}
-      {([-1, 1] as const).map(side => (
-        <mesh key={`gallery-jamb-${side}`} position={[WING_START_ROOM_X, DOOR_HEIGHT / 2, side * DOOR_WIDTH / 2]}>
-          <boxGeometry args={[0.14, DOOR_HEIGHT, 0.14]} />
-          <meshLambertMaterial color={PALETTE.trim} />
-        </mesh>
-      ))}
+      <PortalFrame positionX={WING_START_ROOM_X} />
       {/* ── Ceiling ───────────────────────────────────────────── */}
       <mesh position={[0, ROOM_H - 0.01, 0]} rotation={[Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[ROOM_W, ROOM_D, 2, 2]} />
