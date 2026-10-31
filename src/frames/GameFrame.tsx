@@ -19,6 +19,7 @@ export default function GameFrame({ def, onOpenPebbleSort, onRequestExternalNav 
   const groupRef = useRef<THREE.Group>(null)
   const [hovered, setHovered] = useState(false)
   const isInteractive = def.id === 'pebbles' || Boolean(def.url)
+  const isComingSoon = def.id !== 'pebbles' && !def.url
 
   const lastInteraction = useRef(0)
 
@@ -110,6 +111,24 @@ export default function GameFrame({ def, onOpenPebbleSort, onRequestExternalNav 
       >
         {def.description}
       </Text>
+
+      {isComingSoon && (
+        <group position={[0, -0.64, 0.08]}>
+          <mesh>
+            <boxGeometry args={[1.05, 0.22, 0.04]} />
+            <meshLambertMaterial color={def.accentColor} />
+          </mesh>
+          <Text
+            position={[0, 0, 0.025]}
+            fontSize={0.095}
+            color="#F2E0C2"
+            anchorX="center"
+            anchorY="middle"
+          >
+            COMING SOON
+          </Text>
+        </group>
+      )}
 
       {/* ── "Click to enter" prompt — visible on hover ─── */}
       {hovered && (
