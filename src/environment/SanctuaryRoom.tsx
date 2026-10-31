@@ -673,10 +673,14 @@ export default function SanctuaryRoom() {
           <meshLambertMaterial color={PALETTE.trim} />
         </mesh>
       ))}
-      {/* Left & right */}
-      {([-ROOM_W / 2, ROOM_W / 2] as const).map(x => (
-        <mesh key={x} position={[x, 0.12, 0]}>
-          <boxGeometry args={[0.06, 0.24, ROOM_D]} />
+      {/* West skirting and east-side sections that leave the doorway clear */}
+      <mesh position={[-ROOM_W / 2, 0.12, 0]}>
+        <boxGeometry args={[0.06, 0.24, ROOM_D]} />
+        <meshLambertMaterial color={PALETTE.trim} />
+      </mesh>
+      {([-1, 1] as const).map(side => (
+        <mesh key={`east-skirt-${side}`} position={[ROOM_W / 2, 0.12, side * (DOOR_WIDTH / 2 + (ROOM_D - DOOR_WIDTH) / 4)]}>
+          <boxGeometry args={[0.06, 0.24, (ROOM_D - DOOR_WIDTH) / 2]} />
           <meshLambertMaterial color={PALETTE.trim} />
         </mesh>
       ))}
