@@ -42,6 +42,40 @@ interface WanderBehaviorOptions {
   setCatPosition: Dispatch<SetStateAction<THREE.Vector3>>
 }
 
+function sampleWanderTarget(
+  def: CatDef,
+  position: THREE.Vector3,
+  currentTarget: THREE.Vector3 | null,
+): THREE.Vector3 {
+  const routeWaypoints = [9.5, 13.5, 18.5]
+  if (
+    currentTarget
+    && Math.abs(currentTarget.z) < 0.1
+    && routeWaypoints.some(waypoint => Math.abs(currentTarget.x - waypoint) < 0.1)
+  ) {
+    return currentTarget.clone()
+  }
+
+  if (position.x >= 18) {
+    return sampleSafeTarget(30, 0, 16, 14, position.y)
+  }
+  if (position.x >= 12.5) {
+    return new THREE.Vector3(18.5, position.y, 0)
+  }
+  if (position.x >= 9.5) {
+    return Math.abs(position.z) <= 2.2
+      ? new THREE.Vector3(13.5, position.y, 0)
+      : new THREE.Vector3(9.5, position.y, 0)
+  }
+  if (Math.random() < 0.12) {
+    return new THREE.Vector3(9.5, position.y, 0)
+  }
+
+  const target = sampleSafeTarget(def.position[0], def.position[2], 6, 10, position.y)
+  if (target.x >= 9.5 && Math.abs(target.z) > 2.2) target.x = 9.5
+  return target
+}
+
 export function updateWanderBehavior({
   def,
   ownCatId,
@@ -81,7 +115,7 @@ export function updateWanderBehavior({
         console.log(`[Cat ${def.name}] Staying close during cooldown`)
       }
     } else if (wanderTimerRef.current >= 2.0) {
-      const target = sampleSafeTarget(def.position[0], def.position[2], 6, 10, group.position.y)
+      const target = sampleWanderTarget(def, group.position, targetPos)
       setTargetPos(target)
       stuckTimerRef.current = 0
       lastProgressPosRef.current = null
@@ -136,7 +170,7 @@ export function updateWanderBehavior({
           console.log(`[Cat ${def.name}] Approaching social partner ${partnerId} (drive: ${socialDrive}, rolled: ${randomRoll.toFixed(2)})`)
         }
       } else {
-        const target = sampleSafeTarget(def.position[0], def.position[2], 6, 10, group.position.y)
+        const target = sampleWanderTarget(def, group.position, targetPos)
         setTargetPos(target)
         stuckTimerRef.current = 0
         lastProgressPosRef.current = null
@@ -144,7 +178,7 @@ export function updateWanderBehavior({
         console.log(`[Cat ${def.name}] Skipping social with ${partnerId} (drive: ${socialDrive}, chance: ${socialChance.toFixed(2)}, rolled: ${randomRoll.toFixed(2)})`)
       }
     } else {
-      const target = sampleSafeTarget(def.position[0], def.position[2], 6, 10, group.position.y)
+      const target = sampleWanderTarget(def, group.position, targetPos)
       setTargetPos(target)
       stuckTimerRef.current = 0
       lastProgressPosRef.current = null

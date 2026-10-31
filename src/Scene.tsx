@@ -114,7 +114,7 @@ export default function Scene({ onOpenPebbleSort, onRequestExternalNav, paused =
         <SceneLights />
 
         {/* Environment */}
-        <SanctuaryRoom />
+        <SanctuaryRoom onRequestExternalNav={onRequestExternalNav} />
         <Atmosphere />
 
         {/* Inhabitants */}

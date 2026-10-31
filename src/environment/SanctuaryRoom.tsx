@@ -1,6 +1,7 @@
 import { useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import type { ThreeEvent } from '@react-three/fiber'
+import { Text } from '@react-three/drei'
 import * as THREE from 'three'
 import { registerObstacle } from '../player/obstacleCollision'
 
@@ -8,30 +9,140 @@ import { registerObstacle } from '../player/obstacleCollision'
 const ROOM_W = 20
 const ROOM_H = 4.1
 const ROOM_D = 24
+const WING_START_X = ROOM_W / 2
+const HALL_LENGTH = 8
+const WING_START_ROOM_X = WING_START_X + HALL_LENGTH
+const WING_ROOM_LENGTH = 24
+const WING_ROOM_WIDTH = 18
+const WING_ROOM_END_X = WING_START_ROOM_X + WING_ROOM_LENGTH
+const DOOR_WIDTH = 5.2
+const DOOR_HEIGHT = 3.4
 
 // ─── Register solid obstacle AABBs (called once at module evaluation) ─────────
 // Bench bounds include the legs and seat; XZ padding helps avoid clipping corners.
-registerObstacle([ 5,  0.1, -9], 1.2, 0.4, 0.3)   // bench 1
-registerObstacle([-5,  0.1,  9], 1.2, 0.4, 0.3)   // bench 2
-registerObstacle([ 0,  0.1,  9], 1.2, 0.4, 0.3)   // bench 3
+registerObstacle([5, 0.1, -9], 1.2, 0.4, 0.3)   // bench 1
+registerObstacle([-5, 0.1, 9], 1.2, 0.4, 0.3)   // bench 2
+registerObstacle([0, 0.1, 9], 1.2, 0.4, 0.3)   // bench 3
 // Pedestal bounds include the base and top trim plate.
-registerObstacle([ 7,  0.365, -10], 0.4, 0.4, 0.365) // pedestal 0
-registerObstacle([-7,  0.365, -10], 0.4, 0.4, 0.365) // pedestal 1
-registerObstacle([ 7,  0.365,  10], 0.4, 0.4, 0.365) // pedestal 2
-registerObstacle([-7,  0.365,  10], 0.4, 0.4, 0.365) // pedestal 3
+registerObstacle([7, 0.365, -10], 0.4, 0.4, 0.365) // pedestal 0
+registerObstacle([-7, 0.365, -10], 0.4, 0.4, 0.365) // pedestal 1
+registerObstacle([7, 0.365, 10], 0.4, 0.4, 0.365) // pedestal 2
+registerObstacle([-7, 0.365, 10], 0.4, 0.4, 0.365) // pedestal 3
+registerObstacle([22, 0.365, 0], 0.4, 0.4, 0.365) // wing pedestal 0
+registerObstacle([28, 0.365, 0], 0.4, 0.4, 0.365) // wing pedestal 1
+registerObstacle([34, 0.365, 0], 0.4, 0.4, 0.365) // wing pedestal 2
+registerObstacle([38, 0.365, 0], 0.4, 0.4, 0.365) // wing pedestal 3
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Warm amber palette — all Lambert (unlit-ish, PS1 style)
 const PALETTE = {
-  floor:   new THREE.Color('#5C4A32'),
-  wall:    new THREE.Color('#3D2E1E'),
+  floor: new THREE.Color('#5C4A32'),
+  wall: new THREE.Color('#3D2E1E'),
   ceiling: new THREE.Color('#2A1F14'),
-  trim:    new THREE.Color('#D4955A'),
-  window:  new THREE.Color('#D4B896'),
+  trim: new THREE.Color('#D4955A'),
+  window: new THREE.Color('#D4B896'),
 }
 
 function makeMat(color: THREE.Color, side: THREE.Side = THREE.FrontSide) {
   return new THREE.MeshLambertMaterial({ color, side })
+}
+
+function PortalFrame({ positionX }: { positionX: number }) {
+  const frameDepth = 0.12
+  const frameWidth = 0.12
+  const jambHeight = DOOR_HEIGHT - frameWidth
+
+  return (
+    <>
+      {([-1, 1] as const).map(side => (
+        <mesh
+          key={`${positionX}-${side}`}
+          position={[positionX, jambHeight / 2, side * (DOOR_WIDTH / 2 - frameWidth / 2)]}
+        >
+          <boxGeometry args={[frameDepth, jambHeight, frameWidth]} />
+          <meshLambertMaterial color={PALETTE.trim} />
+        </mesh>
+      ))}
+      <mesh position={[positionX, DOOR_HEIGHT - frameWidth / 2, 0]}>
+        <boxGeometry args={[frameDepth, frameWidth, DOOR_WIDTH]} />
+        <meshLambertMaterial color={PALETTE.trim} />
+      </mesh>
+    </>
+  )
+}
+
+interface ArchivePlaqueProps {
+  onRequestExternalNav: (payload: { url: string; title: string }) => void
+}
+
+function ArchivePlaque({ onRequestExternalNav }: ArchivePlaqueProps) {
+  const lastInteraction = useRef(0)
+  const url = 'https://calebhankins.github.io/Bruce-Box/'
+
+  function handleInteract(e: ThreeEvent<PointerEvent | MouseEvent>) {
+    e.stopPropagation()
+    if (e.nativeEvent.type === 'pointerdown') {
+      lastInteraction.current = performance.now()
+    } else if (performance.now() - lastInteraction.current < 500) {
+      return
+    }
+    onRequestExternalNav({ url, title: 'Bruce-Box Arcade' })
+  }
+
+  return (
+    <group
+      position={[WING_ROOM_END_X - 0.12, 0, 0]}
+      rotation={[0, -Math.PI / 2, 0]}
+      onClick={handleInteract}
+      onPointerDown={handleInteract}
+    >
+      <mesh position={[0, 2.5, 0]} castShadow>
+        <boxGeometry args={[8.6, 3, 0.14]} />
+        <meshLambertMaterial color="#765637" />
+      </mesh>
+      <mesh position={[0, 2.5, 0.09]}>
+        <boxGeometry args={[8.3, 2.7, 0.04]} />
+        <meshLambertMaterial color="#241A13" />
+      </mesh>
+      <Text
+        position={[0, 3.2, 0.13]}
+        fontSize={0.48}
+        color="#E8C88A"
+        anchorX="center"
+        anchorY="middle"
+        maxWidth={7.8}
+        textAlign="center"
+      >
+        The Bruce Baskir Collection
+      </Text>
+      <Text
+        position={[0, 2.72, 0.13]}
+        fontSize={0.25}
+        color="#C8A882"
+        anchorX="center"
+        anchorY="middle"
+        maxWidth={7.6}
+        textAlign="center"
+      >
+        Original games by Bruce Baskir
+      </Text>
+      <mesh position={[0, 2.43, 0.12]}>
+        <boxGeometry args={[2.2, 0.025, 0.02]} />
+        <meshLambertMaterial color={PALETTE.trim} />
+      </mesh>
+      <Text
+        position={[0, 2.08, 0.13]}
+        fontSize={0.21}
+        color="#D4C1A2"
+        anchorX="center"
+        anchorY="middle"
+        maxWidth={7.6}
+        textAlign="center"
+      >
+        Puzzle, strategy, garden, and cozy adventures
+      </Text>
+    </group>
+  )
 }
 
 /** Chunky low-poly bench: a box with four short leg boxes */
@@ -390,6 +501,129 @@ function PedestalWithArtifact({ position, index }: PedestalProps) {
   )
 }
 
+function WingArtifact({ index }: { index: number }) {
+  const groupRef = useRef<THREE.Group>(null)
+  const elapsedRef = useRef(index * 1.5)
+  const interactRef = useRef<number | null>(null)
+  const lastPointerDown = useRef(0)
+
+  function triggerInteract(e: ThreeEvent<PointerEvent | MouseEvent>) {
+    e.stopPropagation()
+    if (e.nativeEvent.type === 'pointerdown') {
+      lastPointerDown.current = performance.now()
+    } else if (performance.now() - lastPointerDown.current < 500) {
+      return
+    }
+    interactRef.current = 0
+    const pitches = [740, 620, 520, 880]
+    playRelicChime(pitches[index] || 660)
+  }
+
+  useFrame((_, delta) => {
+    if (!groupRef.current) return
+    elapsedRef.current += delta
+    const elapsed = elapsedRef.current
+    let spinBoost = 0
+    let lift = 0
+    let pulse = 1
+
+    if (interactRef.current !== null) {
+      interactRef.current += delta
+      const progress = Math.min(interactRef.current / 0.85, 1)
+      const remaining = 1 - progress
+      spinBoost = remaining * 8
+      lift = Math.sin(progress * Math.PI) * 0.24
+      pulse = 1 + Math.sin(progress * Math.PI) * 0.3
+      if (progress >= 1) interactRef.current = null
+    }
+
+    groupRef.current.rotation.y += delta * (0.45 + spinBoost)
+    groupRef.current.position.y = 0.95 + Math.sin(elapsed * 1.8) * 0.06 + lift
+    groupRef.current.scale.setScalar(pulse)
+  })
+
+  return (
+    <group
+      ref={groupRef}
+      onClick={triggerInteract}
+      onPointerDown={triggerInteract}
+    >
+      {index === 0 && (
+        <>
+          <mesh castShadow>
+            <cylinderGeometry args={[0.24, 0.24, 0.3, 6]} />
+            <meshLambertMaterial color="#62A982" />
+          </mesh>
+          <mesh position={[0, 0.22, 0]}>
+            <octahedronGeometry args={[0.12, 0]} />
+            <meshLambertMaterial color="#D4E5A4" />
+          </mesh>
+        </>
+      )}
+      {index === 1 && (
+        <>
+          <mesh position={[0, -0.02, 0]} castShadow>
+            <cylinderGeometry args={[0.07, 0.1, 0.28, 5]} />
+            <meshLambertMaterial color="#E6D0A7" />
+          </mesh>
+          <mesh position={[0, 0.14, 0]} castShadow>
+            <sphereGeometry args={[0.2, 6, 4, 0, Math.PI * 2, 0, Math.PI / 2]} />
+            <meshLambertMaterial color="#C75E54" />
+          </mesh>
+          <mesh position={[0, 0.23, 0]}>
+            <sphereGeometry args={[0.035, 4, 3]} />
+            <meshLambertMaterial color="#F1E5C8" />
+          </mesh>
+        </>
+      )}
+      {index === 2 && (
+        <>
+          <mesh position={[0, 0.04, 0]} castShadow>
+            <cylinderGeometry args={[0.035, 0.045, 0.34, 4]} />
+            <meshLambertMaterial color="#78924F" />
+          </mesh>
+          <mesh position={[-0.11, 0.12, 0]} rotation={[0, 0, 0.65]} castShadow>
+            <tetrahedronGeometry args={[0.16, 0]} />
+            <meshLambertMaterial color="#A8C878" />
+          </mesh>
+          <mesh position={[0.11, 0.22, 0]} rotation={[0, 0, -0.65]} castShadow>
+            <tetrahedronGeometry args={[0.16, 0]} />
+            <meshLambertMaterial color="#D3B964" />
+          </mesh>
+        </>
+      )}
+      {index === 3 && (
+        <>
+          <mesh castShadow>
+            <octahedronGeometry args={[0.25, 0]} />
+            <meshLambertMaterial color="#8B7AA0" />
+          </mesh>
+          <mesh position={[0, 0.28, 0]}>
+            <icosahedronGeometry args={[0.09, 0]} />
+            <meshLambertMaterial color="#E6C879" />
+          </mesh>
+        </>
+      )}
+    </group>
+  )
+}
+
+function WingPedestal({ position, index }: PedestalProps) {
+  return (
+    <group position={position}>
+      <mesh castShadow receiveShadow>
+        <boxGeometry args={[0.8, 0.7, 0.8]} />
+        <meshLambertMaterial color="#655C49" />
+      </mesh>
+      <mesh position={[0, 0.36, 0]}>
+        <boxGeometry args={[0.72, 0.04, 0.72]} />
+        <meshLambertMaterial color="#A98A59" />
+      </mesh>
+      <WingArtifact index={index} />
+    </group>
+  )
+}
+
 /** Window opening with warm emissive glow — simulates light coming in */
 function Window({ position, rotation }: {
   position: [number, number, number]
@@ -418,11 +652,15 @@ function Window({ position, rotation }: {
   )
 }
 
-export default function SanctuaryRoom() {
+interface SanctuaryRoomProps {
+  onRequestExternalNav: (payload: { url: string; title: string }) => void
+}
+
+export default function SanctuaryRoom({ onRequestExternalNav }: SanctuaryRoomProps) {
   // We use useMemo so geometry/material objects aren't recreated on every render
-  const floorMat  = useMemo(() => makeMat(PALETTE.floor, THREE.FrontSide), [])
-  const wallMat   = useMemo(() => makeMat(PALETTE.wall, THREE.BackSide), [])
-  const ceilMat   = useMemo(() => makeMat(PALETTE.ceiling, THREE.FrontSide), [])
+  const floorMat = useMemo(() => makeMat(PALETTE.floor, THREE.FrontSide), [])
+  const wallMat = useMemo(() => makeMat(PALETTE.wall, THREE.DoubleSide), [])
+  const ceilMat = useMemo(() => makeMat(PALETTE.ceiling, THREE.FrontSide), [])
 
   return (
     <group>
@@ -441,11 +679,77 @@ export default function SanctuaryRoom() {
       ))}
 
       {/* ── Room box (viewed from inside → BackSide) ──────────── */}
-      <mesh position={[0, ROOM_H / 2, 0]}>
-        <boxGeometry args={[ROOM_W, ROOM_H, ROOM_D]} />
+      <mesh position={[0, ROOM_H / 2, -ROOM_D / 2]}>
+        <boxGeometry args={[ROOM_W, ROOM_H, 0.08]} />
+        <primitive object={wallMat} />
+      </mesh>
+      <mesh position={[0, ROOM_H / 2, ROOM_D / 2]}>
+        <boxGeometry args={[ROOM_W, ROOM_H, 0.08]} />
+        <primitive object={wallMat} />
+      </mesh>
+      <mesh position={[-ROOM_W / 2, ROOM_H / 2, 0]}>
+        <boxGeometry args={[0.08, ROOM_H, ROOM_D]} />
         <primitive object={wallMat} />
       </mesh>
 
+      {/* East wall split around the wing doorway */}
+      <mesh position={[WING_START_X, (ROOM_H + DOOR_HEIGHT) / 2, 0]}>
+        <boxGeometry args={[0.08, ROOM_H - DOOR_HEIGHT, ROOM_D]} />
+        <meshLambertMaterial color={PALETTE.wall} />
+      </mesh>
+      {([-1, 1] as const).map(side => (
+        <mesh key={side} position={[WING_START_X, DOOR_HEIGHT / 2, side * (DOOR_WIDTH / 2 + (ROOM_D - DOOR_WIDTH) / 4)]}>
+          <boxGeometry args={[0.08, DOOR_HEIGHT, (ROOM_D - DOOR_WIDTH) / 2]} />
+          <meshLambertMaterial color={PALETTE.wall} />
+        </mesh>
+      ))}
+      <PortalFrame positionX={WING_START_X} />
+
+      {/* Hall and gallery walls, floor, and ceiling */}
+      <mesh position={[WING_START_X + HALL_LENGTH / 2, 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <planeGeometry args={[HALL_LENGTH, DOOR_WIDTH]} />
+        <primitive object={floorMat} />
+      </mesh>
+      <mesh position={[WING_START_ROOM_X + WING_ROOM_LENGTH / 2, 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <planeGeometry args={[WING_ROOM_LENGTH, WING_ROOM_WIDTH]} />
+        <primitive object={floorMat} />
+      </mesh>
+      <mesh position={[WING_START_X + HALL_LENGTH / 2, ROOM_H - 0.01, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[HALL_LENGTH, DOOR_WIDTH]} />
+        <primitive object={ceilMat} />
+      </mesh>
+      <mesh position={[WING_START_ROOM_X + WING_ROOM_LENGTH / 2, ROOM_H - 0.01, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[WING_ROOM_LENGTH, WING_ROOM_WIDTH]} />
+        <primitive object={ceilMat} />
+      </mesh>
+      {([-1, 1] as const).map(side => (
+        <mesh key={side} position={[WING_START_X + HALL_LENGTH / 2, ROOM_H / 2, side * DOOR_WIDTH / 2]}>
+          <boxGeometry args={[HALL_LENGTH, ROOM_H, 0.08]} />
+          <primitive object={wallMat} />
+        </mesh>
+      ))}
+      {([-1, 1] as const).map(side => (
+        <mesh key={`gallery-side-${side}`} position={[WING_START_ROOM_X + WING_ROOM_LENGTH / 2, ROOM_H / 2, side * WING_ROOM_WIDTH / 2]}>
+          <boxGeometry args={[WING_ROOM_LENGTH, ROOM_H, 0.08]} />
+          <primitive object={wallMat} />
+        </mesh>
+      ))}
+      <mesh position={[WING_ROOM_END_X, ROOM_H / 2, 0]}>
+        <boxGeometry args={[0.08, ROOM_H, WING_ROOM_WIDTH]} />
+        <primitive object={wallMat} />
+      </mesh>
+      <ArchivePlaque onRequestExternalNav={onRequestExternalNav} />
+      <mesh position={[WING_START_ROOM_X, (ROOM_H + DOOR_HEIGHT) / 2, 0]}>
+        <boxGeometry args={[0.08, ROOM_H - DOOR_HEIGHT, WING_ROOM_WIDTH]} />
+        <primitive object={wallMat} />
+      </mesh>
+      {([-1, 1] as const).map(side => (
+        <mesh key={`gallery-entry-${side}`} position={[WING_START_ROOM_X, DOOR_HEIGHT / 2, side * (DOOR_WIDTH / 2 + (WING_ROOM_WIDTH - DOOR_WIDTH) / 4)]}>
+          <boxGeometry args={[0.08, DOOR_HEIGHT, (WING_ROOM_WIDTH - DOOR_WIDTH) / 2]} />
+          <primitive object={wallMat} />
+        </mesh>
+      ))}
+      <PortalFrame positionX={WING_START_ROOM_X} />
       {/* ── Ceiling ───────────────────────────────────────────── */}
       <mesh position={[0, ROOM_H - 0.01, 0]} rotation={[Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[ROOM_W, ROOM_D, 2, 2]} />
@@ -460,27 +764,36 @@ export default function SanctuaryRoom() {
           <meshLambertMaterial color={PALETTE.trim} />
         </mesh>
       ))}
-      {/* Left & right */}
-      {([-ROOM_W / 2, ROOM_W / 2] as const).map(x => (
-        <mesh key={x} position={[x, 0.12, 0]}>
-          <boxGeometry args={[0.06, 0.24, ROOM_D]} />
+      {/* West skirting and east-side sections that leave the doorway clear */}
+      <mesh position={[-ROOM_W / 2, 0.12, 0]}>
+        <boxGeometry args={[0.06, 0.24, ROOM_D]} />
+        <meshLambertMaterial color={PALETTE.trim} />
+      </mesh>
+      {([-1, 1] as const).map(side => (
+        <mesh key={`east-skirt-${side}`} position={[ROOM_W / 2, 0.12, side * (DOOR_WIDTH / 2 + (ROOM_D - DOOR_WIDTH) / 4)]}>
+          <boxGeometry args={[0.06, 0.24, (ROOM_D - DOOR_WIDTH) / 2]} />
           <meshLambertMaterial color={PALETTE.trim} />
         </mesh>
       ))}
 
       {/* ── Windows — left wall, facing into the room ─────────── */}
       <Window position={[-ROOM_W / 2 + 0.08, 2.6, -6]} rotation={[0, Math.PI / 2, 0]} />
-      <Window position={[-ROOM_W / 2 + 0.08, 2.6,  6]} rotation={[0, Math.PI / 2, 0]} />
+      <Window position={[-ROOM_W / 2 + 0.08, 2.6, 6]} rotation={[0, Math.PI / 2, 0]} />
 
       {/* ── Furniture ─────────────────────────────────────────── */}
-      <Bench position={[ 5,  0.3, -9]} />
-      <Bench position={[-5,  0.3,  9]} />
-      <Bench position={[ 0,  0.3,  9]} />
+      <Bench position={[5, 0.3, -9]} />
+      <Bench position={[-5, 0.3, 9]} />
+      <Bench position={[0, 0.3, 9]} />
 
-      <PedestalWithArtifact position={[ 7,  0.35, -10]} index={0} />
-      <PedestalWithArtifact position={[-7,  0.35, -10]} index={1} />
-      <PedestalWithArtifact position={[ 7,  0.35,  10]} index={2} />
-      <PedestalWithArtifact position={[-7,  0.35,  10]} index={3} />
+      <PedestalWithArtifact position={[7, 0.35, -10]} index={0} />
+      <PedestalWithArtifact position={[-7, 0.35, -10]} index={1} />
+      <PedestalWithArtifact position={[7, 0.35, 10]} index={2} />
+      <PedestalWithArtifact position={[-7, 0.35, 10]} index={3} />
+
+      <WingPedestal position={[22, 0.35, 0]} index={0} />
+      <WingPedestal position={[28, 0.35, 0]} index={1} />
+      <WingPedestal position={[34, 0.35, 0]} index={2} />
+      <WingPedestal position={[38, 0.35, 0]} index={3} />
     </group>
   )
 }

@@ -21,7 +21,7 @@ const MOVE_SPEED = 5.0
 const LOOK_SENS = 0.002
 const TOUCH_LOOK_SENS = 0.006
 const PLAYER_HEIGHT = 1.65
-const BOUNDS = { x: 8.5, z: 10.5 }  // half-extents, keeps player in room
+const BOUNDS = { minX: -8.5, maxX: 41.5, z: 10.5 }
 
 // Physics constants for jumping
 const GRAVITY = 15.0
@@ -236,9 +236,14 @@ export default function PlayerController() {
       PLAYER_HEIGHT,
     )
 
-    // Clamp to room bounds
-    camera.position.x = Math.max(-BOUNDS.x, Math.min(BOUNDS.x, camera.position.x))
-    camera.position.z = Math.max(-BOUNDS.z, Math.min(BOUNDS.z, camera.position.z))
+    // Keep movement inside the foyer, connecting hall, and east gallery.
+    camera.position.x = Math.max(BOUNDS.minX, Math.min(BOUNDS.maxX, camera.position.x))
+    const zLimit = camera.position.x >= 18
+      ? 8.5
+      : camera.position.x >= 9.5
+        ? 2.2
+        : BOUNDS.z
+    camera.position.z = Math.max(-zLimit, Math.min(zLimit, camera.position.z))
 
     playerState.position.copy(camera.position)
     playerState.forward.copy(forward.current)
