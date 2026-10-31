@@ -1,6 +1,7 @@
 import { useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import type { ThreeEvent } from '@react-three/fiber'
+import { Text } from '@react-three/drei'
 import * as THREE from 'three'
 import { registerObstacle } from '../player/obstacleCollision'
 
@@ -67,6 +68,102 @@ function PortalFrame({ positionX }: { positionX: number }) {
         <meshLambertMaterial color={PALETTE.trim} />
       </mesh>
     </>
+  )
+}
+
+interface ArchivePlaqueProps {
+  onRequestExternalNav: (payload: { url: string; title: string }) => void
+}
+
+function ArchivePlaque({ onRequestExternalNav }: ArchivePlaqueProps) {
+  const lastInteraction = useRef(0)
+  const url = 'https://calebhankins.github.io/Bruce-Box/'
+
+  function handleInteract(e: ThreeEvent<PointerEvent | MouseEvent>) {
+    e.stopPropagation()
+    if (e.nativeEvent.type === 'pointerdown') {
+      lastInteraction.current = performance.now()
+    } else if (performance.now() - lastInteraction.current < 500) {
+      return
+    }
+    onRequestExternalNav({ url, title: 'Bruce-Box Arcade' })
+  }
+
+  return (
+    <group
+      position={[WING_ROOM_END_X - 0.12, 0, 0]}
+      rotation={[0, -Math.PI / 2, 0]}
+      onClick={handleInteract}
+      onPointerDown={handleInteract}
+    >
+      <mesh position={[0, 2.5, 0]} castShadow>
+        <boxGeometry args={[8.6, 3, 0.14]} />
+        <meshLambertMaterial color="#765637" />
+      </mesh>
+      <mesh position={[0, 2.5, 0.09]}>
+        <boxGeometry args={[8.3, 2.7, 0.04]} />
+        <meshLambertMaterial color="#241A13" />
+      </mesh>
+      <Text
+        position={[0, 3.2, 0.13]}
+        fontSize={0.48}
+        color="#E8C88A"
+        anchorX="center"
+        anchorY="middle"
+        maxWidth={7.8}
+        textAlign="center"
+      >
+        The Bruce Baskir Collection
+      </Text>
+      <Text
+        position={[0, 2.72, 0.13]}
+        fontSize={0.25}
+        color="#C8A882"
+        anchorX="center"
+        anchorY="middle"
+        maxWidth={7.6}
+        textAlign="center"
+      >
+        Original games by Bruce Baskir
+      </Text>
+      <mesh position={[0, 2.43, 0.12]}>
+        <boxGeometry args={[2.2, 0.025, 0.02]} />
+        <meshLambertMaterial color={PALETTE.trim} />
+      </mesh>
+      <Text
+        position={[0, 2.08, 0.13]}
+        fontSize={0.21}
+        color="#D4C1A2"
+        anchorX="center"
+        anchorY="middle"
+        maxWidth={7.6}
+        textAlign="center"
+      >
+        Puzzle, strategy, garden, and cozy adventures
+      </Text>
+      <Text
+        position={[0, 1.55, 0.13]}
+        fontSize={0.23}
+        color="#D4955A"
+        anchorX="center"
+        anchorY="middle"
+        maxWidth={7.6}
+        textAlign="center"
+      >
+        Bruce-Box Arcade
+      </Text>
+      <Text
+        position={[0, 1.27, 0.13]}
+        fontSize={0.16}
+        color="#C8A882"
+        anchorX="center"
+        anchorY="middle"
+        maxWidth={7.6}
+        textAlign="center"
+      >
+        calebhankins.github.io/Bruce-Box
+      </Text>
+    </group>
   )
 }
 
@@ -577,7 +674,11 @@ function Window({ position, rotation }: {
   )
 }
 
-export default function SanctuaryRoom() {
+interface SanctuaryRoomProps {
+  onRequestExternalNav: (payload: { url: string; title: string }) => void
+}
+
+export default function SanctuaryRoom({ onRequestExternalNav }: SanctuaryRoomProps) {
   // We use useMemo so geometry/material objects aren't recreated on every render
   const floorMat = useMemo(() => makeMat(PALETTE.floor, THREE.FrontSide), [])
   const wallMat = useMemo(() => makeMat(PALETTE.wall, THREE.DoubleSide), [])
@@ -659,6 +760,7 @@ export default function SanctuaryRoom() {
         <boxGeometry args={[0.08, ROOM_H, WING_ROOM_WIDTH]} />
         <primitive object={wallMat} />
       </mesh>
+      <ArchivePlaque onRequestExternalNav={onRequestExternalNav} />
       <mesh position={[WING_START_ROOM_X, (ROOM_H + DOOR_HEIGHT) / 2, 0]}>
         <boxGeometry args={[0.08, ROOM_H - DOOR_HEIGHT, WING_ROOM_WIDTH]} />
         <primitive object={wallMat} />
