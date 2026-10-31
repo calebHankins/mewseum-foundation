@@ -63,14 +63,20 @@ export function applyCatPhysics(
     }
   })
 
-  const roomWidth = 20
-  const roomDepth = 24
-  const wallMargin = 1
-
-  if (group.position.x < -roomWidth / 2 + wallMargin) collisionVector.x += 1.5
-  if (group.position.x > roomWidth / 2 - wallMargin) collisionVector.x -= 1.5
-  if (group.position.z < -roomDepth / 2 + wallMargin) collisionVector.z += 1.5
-  if (group.position.z > roomDepth / 2 - wallMargin) collisionVector.z -= 1.5
+  if (group.position.x >= 18) {
+    if (group.position.x > 41) collisionVector.x -= 1.5
+    if (group.position.x < 18.5 && Math.abs(group.position.z) > 2.1) collisionVector.x += 1.5
+    if (group.position.z < -8) collisionVector.z += 1.5
+    if (group.position.z > 8) collisionVector.z -= 1.5
+  } else if (group.position.x >= 9) {
+    if (group.position.z < -2.1) collisionVector.z += 1.5
+    if (group.position.z > 2.1) collisionVector.z -= 1.5
+  } else {
+    if (group.position.x < -9) collisionVector.x += 1.5
+    if (group.position.x > 9 && Math.abs(group.position.z) > 2.1) collisionVector.x -= 1.5
+    if (group.position.z < -11) collisionVector.z += 1.5
+    if (group.position.z > 11) collisionVector.z -= 1.5
+  }
 
   if (collisionVector.length() > 0) {
     collisionVector.normalize()
