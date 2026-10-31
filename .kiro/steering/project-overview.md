@@ -7,8 +7,8 @@ Mewseum: Foundation is a browser-based, static-deployable 3D hub-world gallery. 
 ## Core Experience Loop
 
 1. Player navigates the 3D "Found Foyer" (a liminal safe-room sanctuary)
-2. Player encounters and pets low-poly stray cats (or discovers them via the Cat Talisman)
-3. Petting a cat "finds" it — it is saved to localStorage and persists across sessions
+2. Player discovers hidden low-poly cats using the Cat Talisman or playable game frames
+3. Found cats appear in the sanctuary and are saved to localStorage; players can then pet them
 4. Player dispenses treats and drops them in the world for cats to seek and eat
 5. Clicking gallery frames opens linked games in new tabs or launches the integrated Pebble Sort mini-game
 6. The space gradually fills with more cats as the player engages

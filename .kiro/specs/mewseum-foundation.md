@@ -24,14 +24,14 @@ A browser-based, static-deployable 3D hub-world gallery for cozy games. Features
 ### R3 — Cat Sanctuary Progression
 - A cat registry defines N cats, each with: `id`, `name`, `position`, `rotation`, `description`
 - On first load, all cats are in "unfound" state (hidden or translucent)
-- When a cat is "found" (via petting), its state is written to `localStorage` key `mewseum_found_cats`
+- When a cat is found via the Cat Talisman or a playable game frame, its state is written to `localStorage` key `mewseum_found_cats`
 - On subsequent visits, found cats are immediately visible and settled
 
 ### R4 — Cat Petting
 - Clicking/tapping a cat triggers a petting interaction:
   - Scale-pulse animation (the cat "reacts")
   - Floating heart/paw sprite above the cat
-  - If first time: triggers `findCat(id)`, updates progression
+- Petting applies only to cats that have already been found
 - Touch input must also trigger petting on mobile
 
 ### R5 — Game Frames
