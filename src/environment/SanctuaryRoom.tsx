@@ -15,7 +15,7 @@ const WING_ROOM_LENGTH = 24
 const WING_ROOM_WIDTH = 18
 const WING_ROOM_END_X = WING_START_ROOM_X + WING_ROOM_LENGTH
 const DOOR_WIDTH = 5.2
-const DOOR_HEIGHT = 3.1
+const DOOR_HEIGHT = 3.4
 
 // ─── Register solid obstacle AABBs (called once at module evaluation) ─────────
 // Bench bounds include the legs and seat; XZ padding helps avoid clipping corners.
@@ -650,15 +650,6 @@ export default function SanctuaryRoom() {
           <meshLambertMaterial color={PALETTE.trim} />
         </mesh>
       ))}
-      <mesh position={[WING_START_ROOM_X, DOOR_HEIGHT + 0.06, 0]}>
-        <boxGeometry args={[0.14, 0.12, DOOR_WIDTH + 0.24]} />
-        <meshLambertMaterial color={PALETTE.trim} />
-      </mesh>
-      <mesh position={[WING_START_X + 0.04, DOOR_HEIGHT, 0]}>
-        <boxGeometry args={[0.16, 0.12, DOOR_WIDTH + 0.24]} />
-        <meshLambertMaterial color={PALETTE.trim} />
-      </mesh>
-
       {/* ── Ceiling ───────────────────────────────────────────── */}
       <mesh position={[0, ROOM_H - 0.01, 0]} rotation={[Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[ROOM_W, ROOM_D, 2, 2]} />
