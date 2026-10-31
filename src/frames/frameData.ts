@@ -92,6 +92,16 @@ export const FRAME_DATA: FrameDef[] = [
     badgeGlyph: '🍄',
   },
   {
+    id: 'sober-life-ii-wing',
+    title: 'SoberLife II',
+    description: 'Choose daily activities and keep your stress in check.',
+    url: 'https://calebhankins.github.io/SoberLife-II/',
+    position: [38, 2.2, -8.9],
+    rotation: [0, 0, 0],
+    accentColor: '#6A5A8A',
+    badgeGlyph: '😱',
+  },
+  {
     id: 'my-garden-grow',
     title: 'My Garden Grow',
     description: 'Turn a stubborn patch into a garden over five years.',
