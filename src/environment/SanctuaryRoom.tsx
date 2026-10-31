@@ -141,28 +141,6 @@ function ArchivePlaque({ onRequestExternalNav }: ArchivePlaqueProps) {
       >
         Puzzle, strategy, garden, and cozy adventures
       </Text>
-      <Text
-        position={[0, 1.55, 0.13]}
-        fontSize={0.23}
-        color="#D4955A"
-        anchorX="center"
-        anchorY="middle"
-        maxWidth={7.6}
-        textAlign="center"
-      >
-        Bruce-Box Arcade
-      </Text>
-      <Text
-        position={[0, 1.27, 0.13]}
-        fontSize={0.16}
-        color="#C8A882"
-        anchorX="center"
-        anchorY="middle"
-        maxWidth={7.6}
-        textAlign="center"
-      >
-        calebhankins.github.io/Bruce-Box
-      </Text>
     </group>
   )
 }
