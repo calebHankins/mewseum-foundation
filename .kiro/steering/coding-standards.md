@@ -45,7 +45,8 @@ const [rotation, setRotation] = useState(0)
 
 - Every cat must have a unique `id` (string slug, e.g. `"dusty"`, `"cinder"`)
 - Cat `found` state lives in `CatProgressContext` only — never local component state
-- The first pet of an undiscovered cat triggers `findCat(id)` — subsequent pets play animation only
+- Unfound cats are hidden; discover them through the Cat Talisman or playable game frames
+- Petting is only available after discovery and triggers the petting feedback below
 - Petting feedback: scale pulse + floating heart sprite + (optionally) purr sound
 
 ## File Naming

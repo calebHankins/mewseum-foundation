@@ -1,6 +1,8 @@
 import { useRef, useState, useCallback } from 'react'
 import { Text } from '@react-three/drei'
 import * as THREE from 'three'
+import { CAT_REGISTRY } from '../cats/catData'
+import { useCatProgress } from '../progression/CatProgressContext'
 import type { FrameDef } from './frameData'
 
 interface GameFrameProps {
@@ -18,6 +20,7 @@ interface GameFrameProps {
 export default function GameFrame({ def, onOpenPebbleSort, onRequestExternalNav }: GameFrameProps) {
   const groupRef = useRef<THREE.Group>(null)
   const [hovered, setHovered] = useState(false)
+  const { foundCats, findCat } = useCatProgress()
   const isInteractive = def.id === 'pebbles' || Boolean(def.url)
   const isComingSoon = def.id !== 'pebbles' && !def.url
 
@@ -29,13 +32,20 @@ export default function GameFrame({ def, onOpenPebbleSort, onRequestExternalNav 
     if (now - lastInteraction.current < 400) return
     lastInteraction.current = now
 
+    const unfoundCats = CAT_REGISTRY.filter(cat => !foundCats.has(cat.id))
+    if (unfoundCats.length > 0) {
+      const foundCat = unfoundCats[Math.floor(Math.random() * unfoundCats.length)]
+      findCat(foundCat.id)
+      console.log(`[GameFrame] Found cat: ${foundCat.name}`)
+    }
+
     if (def.id === 'pebbles') {
       document.exitPointerLock?.()
       onOpenPebbleSort()
     } else if (def.url) {
       onRequestExternalNav({ url: def.url, title: def.title })
     }
-  }, [def.id, def.url, def.title, onOpenPebbleSort, onRequestExternalNav])
+  }, [def.id, def.url, def.title, foundCats, findCat, onOpenPebbleSort, onRequestExternalNav])
 
   const accent = new THREE.Color(def.accentColor)
   const frameColor = hovered

@@ -1,6 +1,6 @@
 # Mewseum: Foundation — Agent Guide
 
-A browser-based 3D hub-world gallery for cozy games. Players navigate the **Found Foyer**, pet stray cats to discover them, and click gallery frames to open linked games. Built with React Three Fiber, styled for a PS1 low-poly aesthetic.
+A browser-based 3D hub-world gallery for cozy games. Players navigate the **Found Foyer**, discover stray cats through the Cat Talisman or playable game frames, and pet cats after they are found. Built with React Three Fiber, styled for a PS1 low-poly aesthetic.
 
 ---
 
@@ -29,7 +29,7 @@ src/
 │   ├── pebbleSounds.ts             # Sound effects for Pebble Sort game
 │   └── useAmbientAudio.ts          # Ambient drone hook, driven by audioEnabled
 ├── cats/
-│   ├── catData.ts                  # CatDef type + CAT_REGISTRY constant (10 cats)
+│   ├── catData.ts                  # CatDef type + CAT_REGISTRY constant
 │   ├── Cat.tsx                     # Individual cat coordinator (state, interactions, refs)
 │   ├── CatRegistry.tsx             # Maps CAT_REGISTRY → <Cat> instances
 │   ├── CatTalisman.tsx             # Altar object that reveals undiscovered cats
@@ -110,11 +110,9 @@ App
 
 ### Cat Discovery & Progression
 
-Cats are **hidden until found**. A cat with `found === false` renders `null`. The first `onPointerDown` on a cat calls `findCat(id)` from `CatProgressContext`, which writes to `localStorage` and causes a re-render that makes the cat visible.
+Cats are **hidden until found**. A cat with `found === false` renders `null`, so an unfound cat cannot be petted. Activating the **CatTalisman** or a playable game frame selects an unfound cat and calls `findCat(id)` from `CatProgressContext`, which saves progress to `localStorage` and makes the cat visible.
 
-Subsequent pets only play the scale-pulse animation and floating heart — they do not call `findCat` again.
-
-The **CatTalisman** (`src/cats/CatTalisman.tsx`) is an altar object that provides an alternate discovery path.
+Once found, cats can be petted to trigger a scale pulse and floating heart. Petting does not discover cats.
 
 ### Cat Behavior State Machine
 
@@ -247,6 +245,6 @@ For GitHub Pages, `vite.config.ts` must set `base: '/mewseum-foundation/'`. Do n
 - Do **not** use PBR materials (`MeshStandardMaterial`, `MeshPhysicalMaterial`).
 - Do **not** add smooth subdivisions to geometry.
 - Do **not** store Three.js object references in React state — use `useRef`.
-- Do **not** call `findCat` more than once per cat — it is idempotent but the guard logic in `Cat.tsx` relies on `isCatFound` being false on the first pet only.
+- Do **not** make petting discover cats; unfound cats are hidden. Use the Cat Talisman or playable game frames to reveal them.
 - Sound defaults to **on**. Resume ambient audio on the first pointer or keyboard interaction if browser autoplay policy suspends it.
 - Do **not** push directly to `main`. Branch and PR for any non-trivial change.

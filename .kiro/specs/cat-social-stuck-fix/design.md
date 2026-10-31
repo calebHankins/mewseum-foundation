@@ -210,7 +210,7 @@ END FOR
 
 ### Integration Tests
 
-- Spawn all 10 cats found in the scene; run 60 s of simulated frames; assert no cat is in SOCIAL state for more than `SOCIAL_TIMEOUT` continuously.
+- Spawn every registered cat in the found state; run 60 s of simulated frames; assert no cat is in SOCIAL state for more than `SOCIAL_TIMEOUT` continuously.
 - Verify that high-drive pairs (Pingu + Marmalade) complete at least two separate social interactions separated by their respective `socialFatigue` windows.
 - Confirm the teal friend-heart appears and disappears correctly during a successful (non-deadlocked) interaction.
 - Confirm wander, idle, pet, and eat behaviors are unaffected when social interactions are disabled entirely (`socialDrive = 0` for all cats).
