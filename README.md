@@ -10,7 +10,7 @@ A browser-based 3D hub-world gallery built with React Three Fiber. Navigate a wa
 
 - **3D first-person navigation** — WASD + mouse look (pointer lock) on desktop, touch look + move + jump controls on mobile
 - **PS1 aesthetic** — no anti-aliasing, fixed pixel ratio, screen-space 4×4 Bayer dithering, colour banding post-processing, low-poly geometry throughout
-- **Cat sanctuary progression** — 10 cats hidden throughout the sanctuary; petting them or discovering them via the Cat Talisman "finds" them, saving progress to `localStorage`
+- **Cat sanctuary progression** — 14 cats hidden throughout the sanctuary; petting them or discovering them via the Cat Talisman "finds" them, saving progress to `localStorage`
 - **Cat behaviors & treats** — dynamic multi-state behavior system (wander, social interactions with hearts, cooldown, and treat seeking/eating) with a central treat dispenser and treat dropping/pickup mechanics
 - **Sanctuary exhibits & games** — wall-mounted game frames linking to external cozy games, plus an integrated interactive Pebble Sort mini-game playable directly inside the sanctuary
 - **Procedural soundscape** — synthesised via Web Audio API (ambient drone, purr loop, and meow / pebble sound effects) with autoplay-compliant opt-in toggle
@@ -64,7 +64,7 @@ src/
 │   └── useAmbientAudio.ts         # Ambient drone & purr synthesizer
 │
 ├── cats/
-│   ├── catData.ts                 # CAT_REGISTRY (10 cats, positions, social attributes)
+│   ├── catData.ts                 # CAT_REGISTRY (14 cats, positions, social attributes)
 │   ├── Cat.tsx                    # Cat component coordinating physics, behavior, visuals, and petting
 │   ├── CatRegistry.tsx            # Maps CAT_REGISTRY → <Cat> instances
 │   ├── CatTalisman.tsx            # Altar object for discovering unfound cats

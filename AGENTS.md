@@ -29,7 +29,7 @@ src/
 │   ├── pebbleSounds.ts             # Sound effects for Pebble Sort game
 │   └── useAmbientAudio.ts          # Ambient drone hook, driven by audioEnabled
 ├── cats/
-│   ├── catData.ts                  # CatDef type + CAT_REGISTRY constant (10 cats)
+│   ├── catData.ts                  # CatDef type + CAT_REGISTRY constant (14 cats)
 │   ├── Cat.tsx                     # Individual cat coordinator (state, interactions, refs)
 │   ├── CatRegistry.tsx             # Maps CAT_REGISTRY → <Cat> instances
 │   ├── CatTalisman.tsx             # Altar object that reveals undiscovered cats
