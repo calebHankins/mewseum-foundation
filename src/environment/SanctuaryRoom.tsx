@@ -86,7 +86,7 @@ function ArchivePlaque({ onRequestExternalNav }: ArchivePlaqueProps) {
     } else if (performance.now() - lastInteraction.current < 500) {
       return
     }
-    onRequestExternalNav({ url, title: 'Bruce-Box Arcade' })
+    onRequestExternalNav({ url, title: 'Bruce Box' })
   }
 
   return (
