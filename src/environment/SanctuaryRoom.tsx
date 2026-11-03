@@ -124,7 +124,7 @@ function ArchivePlaque({ onRequestExternalNav }: ArchivePlaqueProps) {
         maxWidth={7.6}
         textAlign="center"
       >
-        Original games by Bruce Baskir
+        🧩
       </Text>
       <mesh position={[0, 2.43, 0.12]}>
         <boxGeometry args={[2.2, 0.025, 0.02]} />
@@ -139,7 +139,7 @@ function ArchivePlaque({ onRequestExternalNav }: ArchivePlaqueProps) {
         maxWidth={7.6}
         textAlign="center"
       >
-        Puzzle, strategy, garden, and cozy adventures
+        A small collection of original games made with care.
       </Text>
     </group>
   )
