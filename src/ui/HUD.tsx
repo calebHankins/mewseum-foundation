@@ -197,24 +197,23 @@ export default function HUD() {
         <div className="absolute inset-0 flex items-center justify-center pointer-events-auto">
           <div className="bg-sanctuary-dark/92 border-2 border-sanctuary-amber/60 rounded-lg max-w-sm w-full mx-4 p-6 text-center">
             <h1 className="font-pixel text-sanctuary-amber text-sm mb-4 leading-relaxed">
-              Welcome to<br />The Found Foyer
+              Welcome to<br />The Mewseum
             </h1>
             <p className="font-pixel text-sanctuary-dust text-xs leading-relaxed mb-4">
-              This is a sanctuary for stray cats.<br />
-              Explore the space and pet the cats to bring them home.
+              Explore the space and have fun!
             </p>
             <div className="border-t border-sanctuary-amber/20 pt-4 mb-4">
               <p className="font-pixel text-sanctuary-dust/70 text-xs leading-relaxed">
                 {isDesktop
-                  ? 'Click canvas → look with mouse\nWASD or arrow keys to move\nClick a cat to pet it\nClick a frame to open a game'
-                  : 'Drag left side → move\nDrag right side → look\nTap JUMP to leap\nTap a cat to pet it\nTap a frame to open a game'}
+                  ? 'Look with mouse | WASD or arrow keys to move | Click a frame to open a game'
+                  : 'Drag left side → move | Drag right side → look | Tap JUMP to leap | Tap a frame to open a game'}
               </p>
             </div>
             <button
               className="font-pixel text-xs bg-sanctuary-amber/80 text-sanctuary-dark px-4 py-2 rounded hover:bg-sanctuary-amber transition-colors"
               onClick={dismissTutorial}
             >
-              Enter the Refuge →
+              Enter the Mewseum →
             </button>
           </div>
         </div>

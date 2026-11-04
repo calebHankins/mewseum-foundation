@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import type { ThreeEvent } from '@react-three/fiber'
 import { Text } from '@react-three/drei'
@@ -75,11 +75,17 @@ interface ArchivePlaqueProps {
   onRequestExternalNav: (payload: { url: string; title: string }) => void
 }
 
+const ARCHIVE_PLAQUE_MAX_DISTANCE = 6.0
+
 function ArchivePlaque({ onRequestExternalNav }: ArchivePlaqueProps) {
   const lastInteraction = useRef(0)
+  const [hovered, setHovered] = useState(false)
   const url = 'https://calebhankins.github.io/Bruce-Box/'
 
   function handleInteract(e: ThreeEvent<PointerEvent | MouseEvent>) {
+    if (e.distance !== undefined && e.distance > ARCHIVE_PLAQUE_MAX_DISTANCE) {
+      return
+    }
     e.stopPropagation()
     if (e.nativeEvent.type === 'pointerdown') {
       lastInteraction.current = performance.now()
@@ -95,10 +101,25 @@ function ArchivePlaque({ onRequestExternalNav }: ArchivePlaqueProps) {
       rotation={[0, -Math.PI / 2, 0]}
       onClick={handleInteract}
       onPointerDown={handleInteract}
+      onPointerOver={(e) => {
+        if (e.distance !== undefined && e.distance > ARCHIVE_PLAQUE_MAX_DISTANCE) {
+          setHovered(false)
+          return
+        }
+        setHovered(true)
+      }}
+      onPointerMove={(e) => {
+        if (e.distance !== undefined && e.distance > ARCHIVE_PLAQUE_MAX_DISTANCE) {
+          setHovered(false)
+        } else {
+          setHovered(true)
+        }
+      }}
+      onPointerOut={() => setHovered(false)}
     >
       <mesh position={[0, 2.5, 0]} castShadow>
         <boxGeometry args={[8.6, 3, 0.14]} />
-        <meshLambertMaterial color="#765637" />
+        <meshLambertMaterial color={hovered ? '#946D47' : '#765637'} />
       </mesh>
       <mesh position={[0, 2.5, 0.09]}>
         <boxGeometry args={[8.3, 2.7, 0.04]} />

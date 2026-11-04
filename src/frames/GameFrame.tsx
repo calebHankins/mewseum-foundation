@@ -1,9 +1,12 @@
 import { useRef, useState, useCallback } from 'react'
 import { Text } from '@react-three/drei'
+import type { ThreeEvent } from '@react-three/fiber'
 import * as THREE from 'three'
 import { CAT_REGISTRY } from '../cats/catData'
 import { useCatProgress } from '../progression/CatProgressContext'
 import type { FrameDef } from './frameData'
+
+export const FRAME_INTERACTION_MAX_DISTANCE = 5.5
 
 interface GameFrameProps {
   def: FrameDef
@@ -26,7 +29,26 @@ export default function GameFrame({ def, onOpenPebbleSort, onRequestExternalNav 
 
   const lastInteraction = useRef(0)
 
-  const handleInteract = useCallback((e?: { stopPropagation?: () => void }) => {
+  const handlePointerOver = useCallback((e: ThreeEvent<PointerEvent>) => {
+    if (e.distance !== undefined && e.distance > FRAME_INTERACTION_MAX_DISTANCE) {
+      setHovered(false)
+      return
+    }
+    setHovered(true)
+  }, [])
+
+  const handlePointerMove = useCallback((e: ThreeEvent<PointerEvent>) => {
+    if (e.distance !== undefined && e.distance > FRAME_INTERACTION_MAX_DISTANCE) {
+      setHovered(false)
+    } else {
+      setHovered(true)
+    }
+  }, [])
+
+  const handleInteract = useCallback((e?: ThreeEvent<MouseEvent | PointerEvent> | { stopPropagation?: () => void; distance?: number }) => {
+    if (e && 'distance' in e && typeof e.distance === 'number' && e.distance > FRAME_INTERACTION_MAX_DISTANCE) {
+      return
+    }
     e?.stopPropagation?.()
     const now = performance.now()
     if (now - lastInteraction.current < 400) return
@@ -59,7 +81,8 @@ export default function GameFrame({ def, onOpenPebbleSort, onRequestExternalNav 
       rotation={def.rotation}
       onClick={isInteractive ? handleInteract : undefined}
       onPointerDown={isInteractive ? handleInteract : undefined}
-      onPointerOver={isInteractive ? () => setHovered(true) : undefined}
+      onPointerOver={isInteractive ? handlePointerOver : undefined}
+      onPointerMove={isInteractive ? handlePointerMove : undefined}
       onPointerOut={isInteractive ? () => setHovered(false) : undefined}
     >
       {/* ── Outer frame border ─────────────────────────── */}
